@@ -1,19 +1,10 @@
-# HD-Original-Encoding
-Framework to run machine learning datasets with a Hyperdimensional Computing model using the original encoding on python 2.7.15
+# Hyperdimensional Computing Classifier
+#### Originally forked from [https://github.com/moimani/HD-Permutaion](https://github.com/moimani/HD-Permutaion)
 
-There are two main python files:
+This repository includes some utilities to build a Hyperdimensional Computing classification model according to the architecture
+originally introduced in [https://doi.org/10.1109/DAC.2018.8465708](https://doi.org/10.1109/DAC.2018.8465708)
 
-HDFunctions.py contains all the functions needed to run a hyperdimensional computing model and an HDModel class
+It also includes a script able to correctly format the BRCA, KIRP, and THCA DNA-Methylation data from the paper 
+[Classification of Large DNA Methylation Datasets for Identifying Cancer Drivers](https://doi.org/10.1016/j.bdr.2018.02.005) by Fabrizio Celli, Fabio Cumbo, and Emanuel Weitschek.
 
-main.py contains an example of utilizing the functions in HDFunctions.py to train and test a HD model on the isolet dataset
-main.py also contains comments to help desribe how to use your own dataset with our tool.
-
-Please let us know if you face any problems or discover any bugs.
-
-If you utilize this software, please cite our paper:
-
-M. Imani, C. Huang , D. Kong, T. Rosing, “Hierarchical Hyperdimensional Computing for Energy Efficient Classification”, IEEE/ACM Design Automation Conference (DAC), 2018 [PDF](http://moimani.weebly.com/uploads/2/3/8/6/23860882/dac18_hd_hierarchical__11_.pdf).
-
-Mohsen Imani email: moimani@eng.ucsd.edu
-
-Thanks for using out tool to run hyperdimensional computing!
+The original datasets are available available at [ftp://bioinformatics.iasi.cnr.it/public/bigbiocl_dna-meth_data/](ftp://bioinformatics.iasi.cnr.it/public/bigbiocl_dna-meth_data/)
