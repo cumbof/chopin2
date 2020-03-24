@@ -1,0 +1,68 @@
+generating level HVs
+Levels: 1000
+Encoding Training Data
+Encoding Testing Data
+total elapsed time (model) 10711s
+the accuracy is: 98.4375
+iteration: 0
+Error: 0.007782101167315175
+the accuracy is: 98.4375
+iteration: 1
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 2
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 3
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 4
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 5
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 6
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 7
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 8
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 9
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 10
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 11
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 12
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 13
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 14
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 15
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 16
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 17
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 18
+Error: 0.0
+the accuracy is: 98.4375
+iteration: 19
+Error: 0.0
+the accuracy is: 98.4375
+total elapsed time (accuracy) 1s
+the maximum accuracy is: 98.4375

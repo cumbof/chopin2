@@ -1,0 +1,68 @@
+nohup: ignoring input
+generating level HVs
+Encoding Training Data
+Encoding Testing Data
+total elapsed time (model) 19614s
+the accuracy is: 95.55555555555556
+iteration: 0
+Error: 0.02510460251046025
+the accuracy is: 96.66666666666667
+iteration: 1
+Error: 0.009762900976290097
+the accuracy is: 96.66666666666667
+iteration: 2
+Error: 0.00697350069735007
+the accuracy is: 97.77777777777777
+iteration: 3
+Error: 0.00697350069735007
+the accuracy is: 97.77777777777777
+iteration: 4
+Error: 0.0041841004184100415
+the accuracy is: 97.77777777777777
+iteration: 5
+Error: 0.001394700139470014
+the accuracy is: 97.77777777777777
+iteration: 6
+Error: 0.0041841004184100415
+the accuracy is: 97.77777777777777
+iteration: 7
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 8
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 9
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 10
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 11
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 12
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 13
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 14
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 15
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 16
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 17
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 18
+Error: 0.0
+the accuracy is: 97.77777777777777
+iteration: 19
+Error: 0.0
+the accuracy is: 97.77777777777777
+total elapsed time (accuracy) 3s
+the maximum accuracy is: 97.77777777777777

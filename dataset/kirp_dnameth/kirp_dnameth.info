@@ -1,0 +1,5 @@
+[fabrizio@localhost KIRP]$ sed 1q kirp_dnameth_table.csv | tr -cd , | wc -c
+485,512 features
+322 lines (321 tissues)
+
+first column is the code, last is the category: 485,512 features

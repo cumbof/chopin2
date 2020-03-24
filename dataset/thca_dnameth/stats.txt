@@ -1,0 +1,68 @@
+nohup: ignoring input
+generating level HVs
+Encoding Training Data
+Encoding Testing Data
+total elapsed time (model) 13272s
+the accuracy is: 94.73684210526315
+iteration: 0
+Error: 0.030634573304157548
+the accuracy is: 96.49122807017544
+iteration: 1
+Error: 0.0175054704595186
+the accuracy is: 98.24561403508771
+iteration: 2
+Error: 0.0087527352297593
+the accuracy is: 98.24561403508771
+iteration: 3
+Error: 0.002188183807439825
+the accuracy is: 98.24561403508771
+iteration: 4
+Error: 0.002188183807439825
+the accuracy is: 99.12280701754386
+iteration: 5
+Error: 0.002188183807439825
+the accuracy is: 100.0
+iteration: 6
+Error: 0.0
+the accuracy is: 100.0
+iteration: 7
+Error: 0.0
+the accuracy is: 100.0
+iteration: 8
+Error: 0.0
+the accuracy is: 100.0
+iteration: 9
+Error: 0.0
+the accuracy is: 100.0
+iteration: 10
+Error: 0.0
+the accuracy is: 100.0
+iteration: 11
+Error: 0.0
+the accuracy is: 100.0
+iteration: 12
+Error: 0.0
+the accuracy is: 100.0
+iteration: 13
+Error: 0.0
+the accuracy is: 100.0
+iteration: 14
+Error: 0.0
+the accuracy is: 100.0
+iteration: 15
+Error: 0.0
+the accuracy is: 100.0
+iteration: 16
+Error: 0.0
+the accuracy is: 100.0
+iteration: 17
+Error: 0.0
+the accuracy is: 100.0
+iteration: 18
+Error: 0.0
+the accuracy is: 100.0
+iteration: 19
+Error: 0.0
+the accuracy is: 100.0
+total elapsed time (accuracy) 2s
+the maximum accuracy is: 100.0
