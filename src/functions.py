@@ -1,17 +1,5 @@
-#!/usr/local/bin python
-from __future__ import division
-import os
-import sys
-import os.path
-import struct
+import os, random, copy, pickle, warnings
 import numpy as np
-import math
-import copy
-from numpy import linalg as li
-import random
-import pickle
-from math import log, ceil, floor
-import warnings
 warnings.filterwarnings("ignore")
 
 baseVal = -1
@@ -99,7 +87,7 @@ def oneHvPerClass(inputLabels, inputHVs, D):
     return classHVs
 
 def inner_product(x, y):
-    return np.dot(x,y)  / (li.norm(x) * li.norm(y) + 0.0)
+    return np.dot(x,y)  / (np.linalg.norm(x) * np.linalg.norm(y) + 0.0)
 
 #Finds the level hypervector index for the corresponding feature value
 #Inputs:
@@ -156,7 +144,7 @@ def getlevelList(buffers, totalLevel):
 #Outputs:
 #   levelHVs: level hypervector dictionary
 def genLevelHVs(totalLevel, D):
-    print ('generating level HVs')
+    print('generating level HVs')
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
@@ -224,7 +212,7 @@ def trainOneTime(classHVs, trainHVs, trainLabels):
             retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
             retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
     error = (wrong_num+0.0) / len(trainLabels)
-    print('Error: ' + str(error))
+    print('Error: {}'.format(error))
     return retClassHVs, error
 
 #Tests the HD model on the testing set
@@ -241,7 +229,7 @@ def test (classHVs, testHVs, testLabels):
         if (testLabels[index] == guess):
             correct += 1
     accuracy = (correct / len(testLabels)) * 100
-    print ('the accuracy is: ' + str(accuracy))
+    print('the accuracy is: {}'.format(accuracy))
     return (accuracy)
 
 #Retrains the HD model n times and evaluates the accuracy of the model
@@ -258,10 +246,14 @@ def trainNTimes (classHVs, trainHVs, trainLabels, testHVs, testLabels, n):
     accuracy = []
     currClassHV = copy.deepcopy(classHVs)
     accuracy.append(test(currClassHV, testHVs, testLabels))
+    prev_error = np.Inf
     for i in range(n):
-        print('iteration: ' + str(i))
+        print('iteration: {}'.format(i))
         currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels)
         accuracy.append(test(currClassHV, testHVs, testLabels))
+        if error == prev_error:
+            break
+        prev_error = error
     return accuracy
 
 #Creates an HD model object, encodes the training and testing data, and
