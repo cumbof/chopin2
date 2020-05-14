@@ -15,13 +15,14 @@ class HDModel(object):
     #   totalLevel: number of level hypervectors
     #Outputs:
     #   HDModel object
-    def __init__(self, trainData, trainLabels, testData, testLabels, D, totalLevel):
+    def __init__(self, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
             return
         if len(testData) != len(testLabels):
             print("Testing data and testing labels are not the same size")
-            return    
+            return
+        self.workdir = workdir
         self.trainData = trainData
         self.trainLabels = trainLabels
         self.testData = testData
@@ -44,27 +45,29 @@ class HDModel(object):
     #   none
     def buildBufferHVs(self, mode, D, dataset):
         if mode == "train":
-            if os.path.exists('./../dataset/' + dataset + '/train_bufferHVs_' + str(D) +'.pkl'):
+            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}.pkl'.format( str(D) ) )
+            if os.path.exists( train_bufferHVs ):
                 print("Loading Encoded Training Data")
-                with open('./../dataset/' + dataset + '/train_bufferHVs_' + str(D) + '.pkl', 'rb') as f:
+                with open( train_bufferHVs, 'rb' ) as f:
                     self.trainHVs = pickle.load(f)
             else:       
                 print("Encoding Training Data")
                 for index in range(len(self.trainData)):
                     self.trainHVs.append(EncodeToHV(np.array(self.trainData[index]), self.D, self.levelHVs, self.levelList))
-                with open('./../dataset/' + dataset + '/train_bufferHVs_' + str(D) + '.pkl', 'wb') as f:
+                with open( train_bufferHVs, 'wb' ) as f:
                     pickle.dump(self.trainHVs, f)
             self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs, self.D)
         else:
-            if os.path.exists('./../dataset/' + dataset + '/test_bufferHVs_' + str(D) +'.pkl'):
+            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}.pkl'.format( str(D) ) )
+            if os.path.exists( test_bufferHVs ):
                 print("Loading Encoded Testing Data")
-                with open('./../dataset/' + dataset + '/test_bufferHVs_' + str(D) +'.pkl', 'rb') as f:
+                with open( test_bufferHVs, 'rb' ) as f:
                     self.testHVs = pickle.load(f)
             else:
                 print("Encoding Testing Data")       
                 for index in range(len(self.testData)):
                     self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
-                with open('./../dataset/' + dataset + '/test_bufferHVs_' + str(D) +'.pkl', 'wb') as f:
+                with open( test_bufferHVs, 'wb' ) as f:
                     pickle.dump(self.testHVs, f)
 
 #Performs the initial training of the HD model by adding up all the training
@@ -268,8 +271,8 @@ def trainNTimes (classHVs, trainHVs, trainLabels, testHVs, testLabels, n):
 #   datasetName: name of the dataset
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName):
-    model = HDModel(trainData, trainLabels, testData, testLables, D, nLevels)
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./'):
+    model = HDModel(trainData, trainLabels, testData, testLables, D, nLevels, workdir)
     model.buildBufferHVs("train", D, datasetName)
     model.buildBufferHVs("test", D, datasetName)
     return model

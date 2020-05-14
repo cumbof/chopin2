@@ -53,7 +53,8 @@ if __name__ == '__main__':
                                             args.dimensionality, args.levels, 
                                             os.path.splitext(
                                                 os.path.basename(args.dataset)
-                                            )[0]
+                                            )[0],
+                                            os.sep.join( args.dataset.split( os.sep )[ :-1 ] )
                                         )
         t1model = time.time()
         print('total elapsed time (model) {}s'.format(int(t1model - t0model)))
