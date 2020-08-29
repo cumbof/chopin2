@@ -27,3 +27,9 @@ optional arguments:
     --dimensionality [HD_DIMENSION]       default value 10000
     --retrain [RETRAINING_ITERATIONS]     default value 1
 ```
+
+### Credits
+
+Please credit our work in your manuscript by citing:
+
+> _In press_
