@@ -26,10 +26,7 @@ valueidx = 5
 #metaabbr = 'geq'
 #valueidx = 10
 
-
-
 # Input files have the same number of features, all in the same order
-
 basepath = '/Users/fabio/GitHub/HD-Classifier/datasets/OpenGDC'
 inputname = '{}__{}'.format( tumor, datatype )
 
@@ -66,6 +63,7 @@ if len( classes ) > 1:
     for label in classes:
         print( '{}: {}'.format( label, len( classes[ label ] ) ) )
         training_amount = int( ( float( len( classes[ label ] ) ) * float( training_perc ) ) / 100.0 )
+        # Create the training set by random sampling
         training_samples.extend( random.sample( classes[ label ], training_amount ) )
         test_samples.extend( [ sample for sample in classes[ label ] if sample not in training_samples ] )
 

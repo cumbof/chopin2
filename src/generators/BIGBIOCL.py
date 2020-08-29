@@ -30,6 +30,7 @@ training_samples = [ ]
 test_samples = [ ]
 for label in classes:
     training_amount = int( ( float( len( classes[ label ] ) ) * float( training_perc ) ) / 100.0 )
+    # Create the training set by random sampling
     training_samples.extend( random.sample( classes[ label ], training_amount ) )
     test_samples.extend( [ sample for sample in classes[ label ] if sample not in training_samples ] )
 
@@ -56,7 +57,7 @@ with open( inputfile ) as dataset:
                 testData.append( line_split )
                 testLabels.append( label )
 
-print (len( trainData ) )
+print( len( trainData ) )
 print( len( trainLabels ) )
 print( len( testData ) )
 print( len( testLabels ) )
