@@ -18,18 +18,28 @@ toy model for testing purposes only.
 ### Usage
 
 ```
-python hdclass.py [--dataset [INPUT_PKL_DATASET]]
-                  [--dimensionality [HD_DIMENSION]]
-                  [--levels [HD_LEVELS]]
-                  [--retrain [RETRAINING_ITERATIONS]]
+python hdclass.py [--dataset        [INPUT_MATRIX]          ]
+                  [--fieldsep       [FIELD_SEPARATOR]       ]
+                  [--training       [TRAINING_PERCENTAGE]   ]
+                  [--seed           [REPRODUCIBILITY_SEED]  ]
+                  [--pickle         [INPUT_PICKLE]          ]
+                  [--dimensionality [HD_DIMENSION]          ]
+                  [--levels         [HD_LEVELS]             ]
+                  [--retrain        [RETRAINING_ITERATIONS] ]
 
 optional arguments:
+    --training [TRAINING_PERCENTAGE]      default value 80
+    --seed [REPRODUCIBILITY_SEED]         default value 0
     --dimensionality [HD_DIMENSION]       default value 10000
     --retrain [RETRAINING_ITERATIONS]     default value 1
+
+If the --pickle parameter is specified, --dataset, --fieldsep, and --training parameters will not be used
 ```
 
 ### Credits
 
 Please credit our work in your manuscript by citing:
 
-> Fabio Cumbo and Emanuel Weitschek, "An in-memory cognitive-based hyperdimensional approach to accurately classify DNA-Methylation data of cancer" The 11th International Workshop on Biological Knowledge Discovery from Big Data (BIOKDD'20), Communications in Computer and Information Science, vol 1285. Springer, Cham, 2020 [https://doi.org/10.1007/978-3-030-59028-4_1](https://doi.org/10.1007/978-3-030-59028-4_1)
+> Fabio Cumbo, Eleonora Cappelli, and Emanuel Weitschek, "A brain-inspired hyperdimensional computing approach for classifying massive DNA methylation data of cancer", MDPI Algoritms, 2020
+
+> Fabio Cumbo and Emanuel Weitschek, "An in-memory cognitive-based hyperdimensional approach to accurately classify DNA-Methylation data of cancer", The 11th International Workshop on Biological Knowledge Discovery from Big Data (BIOKDD'20), Communications in Computer and Information Science, vol 1285. Springer, Cham, 2020 [https://doi.org/10.1007/978-3-030-59028-4_1](https://doi.org/10.1007/978-3-030-59028-4_1)
