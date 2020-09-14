@@ -32,4 +32,4 @@ optional arguments:
 
 Please credit our work in your manuscript by citing:
 
-> _In press_
+> Fabio Cumbo and Emanuel Weitschek, "An in-memory cognitive-based hyperdimensional approach to accurately classify DNA-Methylation data of cancer" The 11th International Workshop on Biological Knowledge Discovery from Big Data (BIOKDD'20), Communications in Computer and Information Science, vol 1285. Springer, Cham, 2020 [https://doi.org/10.1007/978-3-030-59028-4_1](https://doi.org/10.1007/978-3-030-59028-4_1)
