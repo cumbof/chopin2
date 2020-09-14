@@ -7,7 +7,7 @@ __date__ = 'Mar 27, 2020'
 import os, time, pickle
 import argparse as ap
 import numpy as np
-import functions as hd
+import functions as fun
 
 def read_params():
     p = ap.ArgumentParser( description = ( "The hdclass.py script builds and tests a Hyperdimensional Computing (HDC) classification model on a input dataset." ),
@@ -26,6 +26,23 @@ def read_params():
     p.add_argument( '--dataset', 
                     type = str,
                     help = "Path to the dataset pickle file." )
+    p.add_argument( '--fieldsep', 
+                    type = str,
+                    default = ',',
+                    help = "Field separator." )
+    p.add_argument( '--training', 
+                    type = int,
+                    default = 80,
+                    help = ( "Percentage of observations that will be used to train the model. "
+                             "The remaining percentage will be used to test the classification model." ) )
+    p.add_argument( '--seed', 
+                    type = int,
+                    default = 0,
+                    help = ( "Seed for reproducing random sampling of the observations in the dataset "
+                             "and build both the training and test set." ) )
+    p.add_argument( '--pickle', 
+                    type = str,
+                    help = "Path to the pickle file. If specified, both --dataset and --seed parameters will not be used." )
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
@@ -37,35 +54,50 @@ if __name__ == '__main__':
     print( 'hdclass v{} ({})'.format( __version__, __date__ ) )
     # Load command line parameters
     args = read_params()
-    
-    #the dataset shuld be split into 4 pats, each of which are numpy arrays:
-    #trainData: this is a matrix where each row is a datapoint of the training set and each column is a feature
-    #trainLabels: this is a array where each index contains the label for the data in the same row index of the trainData matrix
-    #trainData: this is a matrix where each row is a datapoint of the testing set and each column is a feature
-    #trainLabels: this is a array where each index contains the label for the data in the same row index of the testData matrix
-    if os.path.exists(args.dataset):
-        with open(args.dataset, 'rb') as f:
-            dataset = pickle.load(f)
+
+    if args.pickle:
+        # If the pickle file already exists
+        picklepath = args.pickle
+        # Load trainData, trainLabels, testData, testLabels
+        with open( picklepath, 'rb' ) as picklefile:
+            dataset = pickle.load( picklefile )
         trainData, trainLabels, testData, testLabels = dataset
-        #encodes the training data, testing data, and performs the initial training of the HD model
+    else:
+        # Otherwise, split the dataset into training and test sets
+        trainData, trainLabels, testData, testLabels = fun.buildDataset( args.dataset, 
+                                                                           separator=args.fieldsep,
+                                                                           training=args.training, 
+                                                                           seed=args.seed )
+        pickledata = ( trainData, trainLabels, testData, testLabels )
+        picklepath = os.path.join( os.path.dirname( args.dataset ), 
+                                   '{}.pkl'.format( os.path.splitext( os.path.basename( args.dataset ) )[ 0 ] ) )
+        with open( picklepath, 'wb' ) as picklefile:
+            pickle.dump( pickledata, picklefile )
+    
+    # trainData:    this is a matrix where each row is a datapoint of the training set and each column is a feature
+    # trainLabels:  this is a array where each index contains the label for the data in the same row index of the trainData matrix
+    # testData:     this is a matrix where each row is a datapoint of the testing set and each column is a feature
+    # testLabels:   this is a array where each index contains the label for the data in the same row index of the testData matrix
+    if trainData and trainLabels and testData and testLabels:
+        # Encodes the training data, testing data, and performs the initial training of the HD model
         t0model = time.time()
-        model = hd.buildHDModel(trainData, trainLabels, testData, testLabels, 
-                                            args.dimensionality, args.levels, 
-                                            os.path.splitext(
-                                                os.path.basename(args.dataset)
-                                            )[0],
-                                            os.sep.join( args.dataset.split( os.sep )[ :-1 ] )
-                                        )
+        model = fun.buildHDModel( trainData, trainLabels, testData, testLabels, 
+                                  args.dimensionality, args.levels, 
+                                  os.path.splitext(
+                                    os.path.basename( picklepath )
+                                  )[0],
+                                  os.sep.join( picklepath.split( os.sep )[ :-1 ] )
+                                )
         t1model = time.time()
-        print('total elapsed time (model) {}s'.format(int(t1model - t0model)))
-        #retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
+        print( 'Total elapsed time (model) {}s'.format( int( t1model - t0model ) ) )
+        # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
         t0acc = time.time()
-        accuracy = hd.trainNTimes(model.classHVs, 
-                                            model.trainHVs, model.trainLabels, 
-                                            model.testHVs, model.testLabels, 
-                                            args.retrain
-                                          )
+        accuracy = fun.trainNTimes( model.classHVs, 
+                                    model.trainHVs, model.trainLabels, 
+                                    model.testHVs, model.testLabels, 
+                                    args.retrain
+                                  )
         t1acc = time.time()
-        print('total elapsed time (accuracy) {}s'.format(int(t1acc - t0acc)))
-        #prints the maximum accuracy achieved
-        print('the maximum accuracy is: ' + str(max(accuracy)))
+        print( 'Total elapsed time (accuracy) {}s'.format( int( t1acc - t0acc ) ) )
+        # Prints the maximum accuracy achieved
+        print( 'The maximum accuracy is: ' + str( max( accuracy ) ) )

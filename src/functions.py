@@ -277,3 +277,37 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
     model.buildBufferHVs("test", D, datasetName)
     return model
 
+# Last line which starts with '#' will be considered header
+# Last column contains classes
+# First column contains the IDs of the observations
+# Header line contains the feature names
+def buildDataset( filepath, separator=',', training=80, seed=0 ):
+    # Set a seed for the random sampling of the dataset
+    random.seed( seed )
+    # Retrieve classes
+    classes = [ ]
+    content = [ ]
+    labels = [ ]
+    with open( filepath ) as file:
+        for line in file:
+            line = line.strip()
+            if line:
+                if not line.startswith( '#' ):
+                    line_split = line.split( separator )
+                    classes.append( line_split[ 0 ] )
+                    content.append( [ float( value ) for value in line_split[ 1: -1 ] ] )
+                    labels.append( line_split[ -1 ] )
+    trainData = [ ]
+    trainLabels = [ ]
+    testData = [ ]
+    testLabels = [ ]
+    for classid in list( set( classes ) ):
+        training_amount = int( ( float( classes.count( classid ) ) * float( training ) ) / 100.0 )
+        # Create the training set by random sampling
+        indices = [ pos for pos in classes if classes[ pos ] == classid ]
+        training_indices = random.sample( indices, training_amount )
+        trainData.extend( [ content[ idx ] for idx in training_indices ] )
+        trainLabels.extends( [ classid ]*len( training_indices ) )
+        testData.extend( [ content[ idx ] for idx in indices if idx not in training_indices ] )
+        testLabels.extends( [ classid ]*( len( indices )-len( training_indices ) ) )
+    return trainData, trainLabels, testData, testLabels
