@@ -42,7 +42,8 @@ def read_params():
                              "and build both the training and test set." ) )
     p.add_argument( '--pickle', 
                     type = str,
-                    help = "Path to the pickle file. If specified, both --dataset and --seed parameters will not be used." )
+                    help = ( "Path to the pickle file. If specified, both '--dataset', '--fieldsep', "
+                             "and '--training' parameters will not be used." ) )
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
