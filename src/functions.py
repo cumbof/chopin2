@@ -15,7 +15,7 @@ class HDModel(object):
     #   totalLevel: number of level hypervectors
     #Outputs:
     #   HDModel object
-    def __init__(self, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir):
+    def __init__(self, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, context=None):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
             return
@@ -34,6 +34,7 @@ class HDModel(object):
         self.trainHVs = []
         self.testHVs = []
         self.classHVs = []
+        self.context = context
 
     #Encodes the training or testing data into hypervectors and saves them or
     #loads the encoded traing or testing data that was saved previously
@@ -48,37 +49,66 @@ class HDModel(object):
             train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}.pkl'.format( str(D) ) )
             if os.path.exists( train_bufferHVs ):
                 print("Loading Encoded Training Data")
-                with open( train_bufferHVs, 'rb' ) as f:
-                    self.trainHVs = pickle.load(f)
-            else:       
+                if self.context is not None:
+                    # Spark Context is running
+                    trainHVs = self.context.pickleFile( train_bufferHVs )
+                else:
+                    with open( train_bufferHVs, 'rb' ) as f:
+                        self.trainHVs = pickle.load(f)
+            else:
                 print("Encoding Training Data")
-                for index in range(len(self.trainData)):
-                    self.trainHVs.append(EncodeToHV(np.array(self.trainData[index]), self.D, self.levelHVs, self.levelList))
-                with open( train_bufferHVs, 'wb' ) as f:
-                    pickle.dump(self.trainHVs, f)
-            self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs, self.D)
+                if self.context is not None:
+                    # Spark Context is running
+                    trainHVs = self.context.parallelize( self.trainData )
+                    trainHVs.map( lambda idx, obs: ( self.trainLabels[ idx ], 
+                                                     EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) 
+                                                   ), enumerate( self.trainData ) )
+                    trainHVs.saveAsPickleFile( train_bufferHVs )
+                else:
+                    for index in range(len(self.trainData)):
+                        self.trainHVs.append(EncodeToHV(np.array(self.trainData[index]), self.D, self.levelHVs, self.levelList))
+                    with open( train_bufferHVs, 'wb' ) as f:
+                        pickle.dump(self.trainHVs, f)
+            if self.context is not None:
+                # Spark Context is running
+                self.trainHVs = trainHVs.map( lambda obs: obs[ 1 ] ).collect()
+                self.classHVs = trainHVs.reduceByKey( lambda obs1HV, obs2HV: np.add( obs1HV, obs2HV ) ).collectAsMap()
+            else:
+                self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs)
         else:
             test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}.pkl'.format( str(D) ) )
             if os.path.exists( test_bufferHVs ):
                 print("Loading Encoded Testing Data")
-                with open( test_bufferHVs, 'rb' ) as f:
-                    self.testHVs = pickle.load(f)
+                if self.content is not None:
+                    # Spark Context is running
+                    self.testHVs = self.context.pickleFile( test_bufferHVs ).map( lambda obs: obs[ 1 ] ).collect()
+                else:
+                    with open( test_bufferHVs, 'rb' ) as f:
+                        self.testHVs = pickle.load(f)
             else:
-                print("Encoding Testing Data")       
-                for index in range(len(self.testData)):
-                    self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
-                with open( test_bufferHVs, 'wb' ) as f:
-                    pickle.dump(self.testHVs, f)
+                print("Encoding Testing Data")  
+                if self.content is not None:
+                    # Spark Context is running
+                    testHVs = self.context.parallelize( self.testData )
+                    testHVs.map( lambda idx, obs: ( self.testLabels[ idx ], 
+                                                    EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) 
+                                                  ), enumerate( self.testData ) )
+                    testHVs.saveAsPickleFile( train_bufferHVs )
+                    self.testHVs = testHVs.map( lambda obs: obs[ 1 ] ).collect()
+                else:
+                    for index in range(len(self.testData)):
+                        self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
+                    with open( test_bufferHVs, 'wb' ) as f:
+                        pickle.dump(self.testHVs, f)
 
 #Performs the initial training of the HD model by adding up all the training
 #hypervectors that belong to each class to create each class hypervector
 #Inputs:
 #   inputLabels: training labels
 #   inputHVs: encoded training data
-#   D: dimensionality
 #Outputs:
 #   classHVs: class hypervectors
-def oneHvPerClass(inputLabels, inputHVs, D):
+def oneHvPerClass(inputLabels, inputHVs):
     #This creates a dict with no duplicates
     classHVs = dict()
     for i in range(len(inputLabels)):
@@ -271,10 +301,24 @@ def trainNTimes (classHVs, trainHVs, trainLabels, testHVs, testLabels, n):
 #   datasetName: name of the dataset
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./'):
-    model = HDModel(trainData, trainLabels, testData, testLables, D, nLevels, workdir)
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', spark=False):
+    context = None
+    if spark:
+        # Load PySpark on demand
+        from pyspark import SparkConf, SparkContext, SQLContext
+        # Build a Spark context or use the existing one
+        config = SparkConf().setAppName( datasetName )
+        context = SparkContext.getOrCreate( config )
+    # Initialise HDModel
+    model = HDModel( trainData, trainLabels, testData, testLables, 
+                     D, nLevels, workdir, context=context )
+    # Build training HD vectors
     model.buildBufferHVs("train", D, datasetName)
+    # Test model
     model.buildBufferHVs("test", D, datasetName)
+    if spark:
+        # Stop Spark context and return the HD model
+        context.stop()
     return model
 
 # Last line which starts with '#' will be considered header
