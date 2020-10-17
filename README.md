@@ -26,20 +26,23 @@ python hdclass.py [--dataset        [INPUT_MATRIX]          ]
                   [--dimensionality [HD_DIMENSION]          ]
                   [--levels         [HD_LEVELS]             ]
                   [--retrain        [RETRAINING_ITERATIONS] ]
+                  [--spark          [USE_SPARK]             ]
 
 optional arguments:
     --training [TRAINING_PERCENTAGE]      default value 80
     --seed [REPRODUCIBILITY_SEED]         default value 0
     --dimensionality [HD_DIMENSION]       default value 10000
     --retrain [RETRAINING_ITERATIONS]     default value 1
+    --spark [USE_SPARK]                   default value False
 
 If the --pickle parameter is specified, --dataset, --fieldsep, and --training parameters will not be used
+Use the --spark parameter to distribute the model generation work load over a Spark cluster if available
 ```
 
 ### Credits
 
 Please credit our work in your manuscript by citing:
 
-> Fabio Cumbo, Eleonora Cappelli, and Emanuel Weitschek, "A brain-inspired hyperdimensional computing approach for classifying massive DNA methylation data of cancer", MDPI Algoritms, 2020
+1. > Fabio Cumbo, Eleonora Cappelli, and Emanuel Weitschek, "A brain-inspired hyperdimensional computing approach for classifying massive DNA methylation data of cancer", MDPI Algoritms, 2020
 
-> Fabio Cumbo and Emanuel Weitschek, "An in-memory cognitive-based hyperdimensional approach to accurately classify DNA-Methylation data of cancer", The 11th International Workshop on Biological Knowledge Discovery from Big Data (BIOKDD'20), Communications in Computer and Information Science, vol 1285. Springer, Cham, 2020 [https://doi.org/10.1007/978-3-030-59028-4_1](https://doi.org/10.1007/978-3-030-59028-4_1)
+2. > Fabio Cumbo and Emanuel Weitschek, "An in-memory cognitive-based hyperdimensional approach to accurately classify DNA-Methylation data of cancer", The 11th International Workshop on Biological Knowledge Discovery from Big Data (BIOKDD'20), Communications in Computer and Information Science, vol 1285. Springer, Cham, 2020 [https://doi.org/10.1007/978-3-030-59028-4_1](https://doi.org/10.1007/978-3-030-59028-4_1)
