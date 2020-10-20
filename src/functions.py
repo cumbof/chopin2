@@ -46,14 +46,14 @@ class HDModel(object):
     #   none
     def buildBufferHVs(self, mode, D, dataset):
         if mode == "train":
-            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}.pkl'.format( str(D) ) )
+            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}'.format( str(D) ) )
             if os.path.exists( train_bufferHVs ):
                 print("Loading Encoded Training Data")
                 if self.context is not None:
                     # Spark Context is running
                     trainHVs = self.context.pickleFile( train_bufferHVs )
                 else:
-                    with open( train_bufferHVs, 'rb' ) as f:
+                    with open( '{}.pkl'.format( train_bufferHVs ), 'rb' ) as f:
                         self.trainHVs = pickle.load(f)
             else:
                 print("Encoding Training Data")
@@ -67,7 +67,7 @@ class HDModel(object):
                 else:
                     for index in range(len(self.trainData)):
                         self.trainHVs.append(EncodeToHV(np.array(self.trainData[index]), self.D, self.levelHVs, self.levelList))
-                    with open( train_bufferHVs, 'wb' ) as f:
+                    with open( '{}.pkl'.format( train_bufferHVs ), 'wb' ) as f:
                         pickle.dump(self.trainHVs, f)
             if self.context is not None:
                 # Spark Context is running
@@ -76,29 +76,29 @@ class HDModel(object):
             else:
                 self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs)
         else:
-            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}.pkl'.format( str(D) ) )
+            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}'.format( str(D) ) )
             if os.path.exists( test_bufferHVs ):
                 print("Loading Encoded Testing Data")
-                if self.content is not None:
+                if self.context is not None:
                     # Spark Context is running
                     self.testHVs = self.context.pickleFile( test_bufferHVs ).map( lambda obs: obs[ 1 ] ).collect()
                 else:
-                    with open( test_bufferHVs, 'rb' ) as f:
+                    with open( '{}.pkl'.format( test_bufferHVs ), 'rb' ) as f:
                         self.testHVs = pickle.load(f)
             else:
                 print("Encoding Testing Data")  
-                if self.content is not None:
+                if self.context is not None:
                     # Spark Context is running
                     testHVs = self.context.parallelize( self.testData )
                     testHVs.map( lambda idx, obs: ( self.testLabels[ idx ], 
                                                     EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) 
                                                   ), enumerate( self.testData ) )
-                    testHVs.saveAsPickleFile( train_bufferHVs )
+                    testHVs.saveAsPickleFile( test_bufferHVs )
                     self.testHVs = testHVs.map( lambda obs: obs[ 1 ] ).collect()
                 else:
                     for index in range(len(self.testData)):
                         self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
-                    with open( test_bufferHVs, 'wb' ) as f:
+                    with open( '{}.pkl'.format( test_bufferHVs ), 'wb' ) as f:
                         pickle.dump(self.testHVs, f)
 
 #Performs the initial training of the HD model by adding up all the training
