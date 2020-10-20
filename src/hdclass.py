@@ -47,7 +47,12 @@ def read_params():
     p.add_argument( '--spark',
                     action = 'store_true',
                     default = False,
-                    help = 'Build the classification model in a Apache Spark distributed environment' )
+                    help = "Build the classification model in a Apache Spark distributed environment" )
+    p.add_argument( '--gpu',
+                    action = 'store_true',
+                    default = False,
+                    help = "Build the classification model on an NVidia powered GPU. "
+                           "This argument will be ignored if --spark is specified" )
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
@@ -92,7 +97,8 @@ if __name__ == '__main__':
                                     os.path.basename( picklepath )
                                   )[0],
                                   os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
-                                  spark=args.spark
+                                  spark=args.spark,
+                                  gpu=args.gpu
                                 )
         t1model = time.time()
         print( 'Total elapsed time (model) {}s'.format( int( t1model - t0model ) ) )
