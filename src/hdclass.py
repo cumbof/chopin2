@@ -10,7 +10,8 @@ import numpy as np
 import functions as fun
 
 def read_params():
-    p = ap.ArgumentParser( description = ( "The hdclass.py script builds and tests a Hyperdimensional Computing (HDC) classification model on a input dataset." ),
+    p = ap.ArgumentParser( description = ( "The hdclass.py script builds and tests a Hyperdimensional Computing (HDC) "
+                                           "classification model on a input dataset." ),
                            formatter_class = ap.ArgumentDefaultsHelpFormatter )
     p.add_argument( '--dimensionality', 
                     type = int,
@@ -43,7 +44,7 @@ def read_params():
     p.add_argument( '--pickle', 
                     type = str,
                     help = ( "Path to the pickle file. If specified, both '--dataset', '--fieldsep', "
-                             "and '--training' parameters will not be used" ) )
+                             "and '--training' parameters are not used" ) )
     p.add_argument( '--spark',
                     action = 'store_true',
                     default = False,
@@ -52,7 +53,12 @@ def read_params():
                     action = 'store_true',
                     default = False,
                     help = "Build the classification model on an NVidia powered GPU. "
-                           "This argument will be ignored if --spark is specified" )
+                           "This argument is ignored if --spark is specified" )
+    p.add_argument( '--nproc', 
+                    type = int,
+                    default = 1,
+                    help = ( "Number of parallel jobs for the creation of the HD model. "
+                             "This argument is ignored if --spark is specified" ) )
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
@@ -98,7 +104,8 @@ if __name__ == '__main__':
                                   )[0],
                                   os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
                                   spark=args.spark,
-                                  gpu=args.gpu
+                                  gpu=args.gpu,
+                                  nproc=args.nproc
                                 )
         t1model = time.time()
         print( 'Total elapsed time (model) {}s'.format( int( t1model - t0model ) ) )

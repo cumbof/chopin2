@@ -1,5 +1,7 @@
 import os, random, copy, pickle, warnings
 import numpy as np
+import multiprocessing as mp
+from functools import partial
 warnings.filterwarnings("ignore")
 
 baseVal = -1
@@ -16,10 +18,11 @@ class HDModel(object):
     #   totalLevel: number of level hypervectors
     #   workdir: working directory
     #   spark: use Spark
-    #   gpu = use GPU
+    #   gpu: use GPU
+    #   nproc: number of parallel jobs 
     #Outputs:
     #   HDModel object
-    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, spark=False, gpu=False):
+    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, spark=False, gpu=False, nproc=1):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
             return
@@ -41,6 +44,7 @@ class HDModel(object):
         self.classHVs = []
         self.spark = spark
         self.gpu = gpu
+        self.nproc = nproc
 
     #Encodes the training or testing data into hypervectors and saves them or
     #loads the encoded traing or testing data that was saved previously
@@ -75,8 +79,24 @@ class HDModel(object):
                     trainHVs.map( lambda label, obs: ( label, EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) ) )
                     trainHVs.saveAsPickleFile( train_bufferHVs )
                 else:
-                    for index in range(len(self.trainData)):
-                        self.trainHVs.append(EncodeToHV(np.array(self.trainData[index]), self.D, self.levelHVs, self.levelList))
+                    # Multiprocessing
+                    trainHVs = { }
+                    with mp.Pool( processes=self.nproc ) as pool:
+                        EncodeToHVPartial = partial( EncodeToHV_wrapper, 
+                                                     D=self.D, 
+                                                     levelHVs=self.levelHVs, 
+                                                     levelList=self.levelList )
+
+                        chunks = [ self.trainData[ i: i+self.nproc ] for i in range( 0, len(self.trainData), self.nproc ) ]
+                        for cid in range( 0, len( chunks ) ):
+                            positions = list( range( cid*len(chunks[ cid ]), (cid*len(chunks[ cid ]))+len(chunks[ cid ]) ) )
+                            results = pool.starmap( EncodeToHVPartial, zip( chunks[ cid ], positions ) )
+                            for position, vector in results:
+                                trainHVs[ position ] = vector
+                    self.trainHVs = [ vector for _, vector in sorted( trainHVs.items(), key=lambda item: item[ 0 ] ) ]
+                    # Sequential
+                    #for index in range(len(self.trainData)):
+                    #    self.trainHVs.append(EncodeToHV(np.array(self.trainData[index]), self.D, self.levelHVs, self.levelList))
                     with open( '{}.pkl'.format( train_bufferHVs ), 'wb' ) as f:
                         pickle.dump(self.trainHVs, f)
             if self.spark:
@@ -104,8 +124,24 @@ class HDModel(object):
                     testHVs.saveAsPickleFile( test_bufferHVs )
                     self.testHVs = testHVs.map( lambda obs: obs[ 1 ] ).collect()
                 else:
-                    for index in range(len(self.testData)):
-                        self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
+                    # Multiprocessing
+                    testHVs = { }
+                    with mp.Pool( processes=self.nproc ) as pool:
+                        EncodeToHVPartial = partial( EncodeToHV_wrapper, 
+                                                     D=self.D, 
+                                                     levelHVs=self.levelHVs, 
+                                                     levelList=self.levelList )
+                    
+                        chunks = [ self.testData[ i: i+self.nproc ] for i in range( 0, len(self.testData), self.nproc ) ]
+                        for cid in range( 0, len( chunks ) ):
+                            positions = list( range( cid*len(chunks[ cid ]), (cid*len(chunks[ cid ]))+len(chunks[ cid ]) ) )
+                            results = pool.starmap( EncodeToHVPartial, zip( chunks[ cid ], positions ) )
+                            for position, vector in results:
+                                testHVs[ position ] = vector
+                    self.testHVs = [ vector for _, vector in sorted( testHVs.items(), key=lambda item: item[ 0 ] ) ]
+                    # Sequential
+                    #for index in range(len(self.testData)):
+                    #    self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
                     with open( '{}.pkl'.format( test_bufferHVs ), 'wb' ) as f:
                         pickle.dump(self.testHVs, f)
         
@@ -189,7 +225,7 @@ def getlevelList(buffers, totalLevel):
 #Outputs:
 #   levelHVs: level hypervector dictionary
 def genLevelHVs(totalLevel, D):
-    print('generating level HVs')
+    print('Generating level HVs')
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
@@ -205,6 +241,9 @@ def genLevelHVs(totalLevel, D):
             base[index] = base[index] * -1
         levelHVs[name] = copy.deepcopy(base)
     return levelHVs   
+
+def EncodeToHV_wrapper(inputBuffer, position, D=10000, levelHVs={}, levelList=[]):
+    return position, EncodeToHV(inputBuffer, D, levelHVs, levelList)
 
 #Encodes a single datapoint into a hypervector
 #Inputs:
@@ -311,12 +350,16 @@ def trainNTimes (classHVs, trainHVs, trainLabels, testHVs, testLabels, n):
 #   D: dimensionality
 #   nLevels: number of level hypervectors
 #   datasetName: name of the dataset
+#   workdir: working directory
+#   spark: use Spark
+#   gpu: use GPU
+#   nproc: number of parallel jobs
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', spark=False, gpu=False):
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', spark=False, gpu=False, nproc=1):
     # Initialise HDModel
     model = HDModel( datasetName, trainData, trainLabels, testData, testLables, 
-                     D, nLevels, workdir, spark=spark, gpu=gpu )
+                     D, nLevels, workdir, spark=spark, gpu=gpu, nproc=nproc )
     # Build training HD vectors
     model.buildBufferHVs("train")
     # Test model
