@@ -2,6 +2,7 @@ import os, random, copy, pickle, warnings
 import numpy as np
 import multiprocessing as mp
 from functools import partial
+from numba import cuda
 warnings.filterwarnings("ignore")
 
 baseVal = -1
@@ -22,7 +23,7 @@ class HDModel(object):
     #   nproc: number of parallel jobs 
     #Outputs:
     #   HDModel object
-    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, spark=False, gpu=False, nproc=1):
+    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, spark=False, gpu=False, tblock=32, nproc=1):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
             return
@@ -38,12 +39,13 @@ class HDModel(object):
         self.D = D
         self.totalLevel = totalLevel
         self.levelList = getlevelList(self.trainData, self.totalLevel)
-        self.levelHVs = genLevelHVs(self.totalLevel, self.D)
+        self.levelHVs = genLevelHVs(self.totalLevel, self.D, gpu=gpu, tblock=tblock)
         self.trainHVs = []
         self.testHVs = []
         self.classHVs = []
         self.spark = spark
         self.gpu = gpu
+        self.tblock = tblock
         self.nproc = nproc
 
     #Encodes the training or testing data into hypervectors and saves them or
@@ -62,7 +64,7 @@ class HDModel(object):
             context = SparkContext.getOrCreate( config )
 
         if mode == "train":
-            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}'.format( str(self.D) ) )
+            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}'.format( str(self.D), str(self.totalLevel) ) )
             if os.path.exists( train_bufferHVs ):
                 print("Loading Encoded Training Data")
                 if self.spark:
@@ -104,9 +106,9 @@ class HDModel(object):
                 self.trainHVs = trainHVs.map( lambda obs: obs[ 1 ] ).collect()
                 self.classHVs = trainHVs.reduceByKey( lambda obs1HV, obs2HV: np.add( obs1HV, obs2HV ) ).collectAsMap()
             else:
-                self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs)
+                self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs, gpu=self.gpu, tblock=self.tblock)
         else:
-            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}'.format( str(self.D) ) )
+            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}'.format( str(self.D), str(self.totalLevel) ) )
             if os.path.exists( test_bufferHVs ):
                 print("Loading Encoded Testing Data")
                 if self.spark:
@@ -149,20 +151,41 @@ class HDModel(object):
             # Stop Spark context
             context.stop()
 
+@cuda.jit
+def gpu_add(A, B):
+    pos = cuda.grid(1)
+    if pos < A.size:
+        A[pos] += B[pos]
+
+@cuda.jit
+def gpu_base(A, B):
+    pos = cuda.grid(1)
+    if pos < A.size:
+        posB = A[pos]
+        B[posB] = B[posB] * -1
+
 #Performs the initial training of the HD model by adding up all the training
 #hypervectors that belong to each class to create each class hypervector
 #Inputs:
 #   inputLabels: training labels
 #   inputHVs: encoded training data
+#   gpu: use cuda
+#   tblock: threads per block
 #Outputs:
 #   classHVs: class hypervectors
-def oneHvPerClass(inputLabels, inputHVs):
+def oneHvPerClass(inputLabels, inputHVs, gpu=False, tblock=32):
     #This creates a dict with no duplicates
     classHVs = dict()
     for i in range(len(inputLabels)):
         name = inputLabels[i]
         if (name in classHVs.keys()):
-            classHVs[name] = np.array(classHVs[name]) + np.array(inputHVs[i])
+            if gpu:
+                A = np.array(classHVs[name])
+                blocksPerGrid = (A.size + (tblock - 1))
+                gpu_add[blocksPerGrid, tblock](A, np.array(inputHVs[i]))
+                classHVs[name] = A
+            else:
+                classHVs[name] = np.array(classHVs[name]) + np.array(inputHVs[i])
         else:
             classHVs[name] = np.array(inputHVs[i])
     return classHVs
@@ -222,25 +245,58 @@ def getlevelList(buffers, totalLevel):
 #Inputs:
 #   totalLevel: number of level hypervectors
 #   D: dimensionality
+#   gpu: use cuda
+#   tblock: threads per block
 #Outputs:
 #   levelHVs: level hypervector dictionary
-def genLevelHVs(totalLevel, D):
+def genLevelHVs(totalLevel, D, gpu=False, tblock=32):
     print('Generating level HVs')
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
     change = int(D / 2)
-    for level in range(totalLevel):
-        name = level
-        if(level == 0):
-            base = np.full(D, baseVal)
-            toOne = np.random.permutation(indexVector)[:change]
-        else:
-            toOne = np.random.permutation(indexVector)[:nextLevel]
+    # First level
+    base = np.full( D, baseVal )
+    toOne = np.random.permutation(indexVector)[:change]
+    if gpu:
+        blocksPerGrid = (toOne.size + (tblock - 1))
+        gpu_base[blocksPerGrid, tblock](toOne, base)
+    else:
         for index in toOne:
             base[index] = base[index] * -1
-        levelHVs[name] = copy.deepcopy(base)
-    return levelHVs   
+    levelHVs[0] = copy.deepcopy(base)
+    # Generate all the other levels
+    for level in range(1, totalLevel):
+        toOne = np.random.permutation(indexVector)[:nextLevel]
+        if gpu:
+            blocksPerGrid = (toOne.size + (tblock - 1))
+            gpu_base[blocksPerGrid, tblock](toOne, base)
+        else:
+            for index in toOne:
+                base[index] = base[index] * -1
+        levelHVs[level] = copy.deepcopy(base)
+    return levelHVs
+
+def genLevelHVsNumba(totalLevel, D):
+    print('generating level HVs')
+    levelHVs = [ ]
+    indexVector = range( D )
+    change = int( D / 2 )
+    nextLevel = int( ( D / 2 / totalLevel ) )
+    base = np.full( D, baseVal )
+    toOne = np.random.permutation(indexVector)[:change]
+    blockspergrid = (toOne.size + (threadsperblock - 1)) // threadsperblock
+    GetBase[blockspergrid, threadsperblock](toOne, base)
+    for level in range(totalLevel):
+        name = level
+        toOne = np.random.permutation( indexVector )[ :nextLevel ]
+        # for index in toOne:
+            # base[index] = base[index] * -1
+        if toOne.size != 0:
+            blockspergrid = (toOne.size + (threadsperblock - 1)) // threadsperblock
+            GetBase[blockspergrid, threadsperblock](toOne, base)
+        levelHVs.append( np.copy( base ) )
+    return levelHVs
 
 def EncodeToHV_wrapper(inputBuffer, position, D=10000, levelHVs={}, levelList=[]):
     return position, EncodeToHV(inputBuffer, D, levelHVs, levelList)
@@ -356,10 +412,11 @@ def trainNTimes (classHVs, trainHVs, trainLabels, testHVs, testLabels, n):
 #   nproc: number of parallel jobs
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', spark=False, gpu=False, nproc=1):
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, 
+                 datasetName, workdir='./', spark=False, gpu=False, tblock=32, nproc=1):
     # Initialise HDModel
     model = HDModel( datasetName, trainData, trainLabels, testData, testLables, 
-                     D, nLevels, workdir, spark=spark, gpu=gpu, nproc=nproc )
+                     D, nLevels, workdir, spark=spark, gpu=gpu, tblock=tblock, nproc=nproc )
     # Build training HD vectors
     model.buildBufferHVs("train")
     # Test model

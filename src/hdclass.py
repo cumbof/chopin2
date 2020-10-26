@@ -54,11 +54,16 @@ def read_params():
                     default = False,
                     help = "Build the classification model on an NVidia powered GPU. "
                            "This argument is ignored if --spark is specified" )
+    p.add_argument( '--tblock', 
+                    type = int,
+                    default = 32,
+                    help = ( "Number of threads per block in case --gpu argument is enabled. "
+                             "This argument is ignored if --spark is enabled" ) )
     p.add_argument( '--nproc', 
                     type = int,
                     default = 1,
                     help = ( "Number of parallel jobs for the creation of the HD model. "
-                             "This argument is ignored if --spark is specified" ) )
+                             "This argument is ignored if --spark is enabled" ) )
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
@@ -105,6 +110,7 @@ if __name__ == '__main__':
                                   os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
                                   spark=args.spark,
                                   gpu=args.gpu,
+                                  tblock=args.tblock,
                                   nproc=args.nproc
                                 )
         t1model = time.time()
