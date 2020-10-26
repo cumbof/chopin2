@@ -27,6 +27,9 @@ python hdclass.py [--dataset        [INPUT_MATRIX]          ]
                   [--levels         [HD_LEVELS]             ]
                   [--retrain        [RETRAINING_ITERATIONS] ]
                   [--spark          [USE_SPARK]             ]
+                  [--gpu            [USE_GPU]               ]
+                  [--tblock]        [GPU_THREADS_PER_BLOCK] ]
+                  [--nproc]         [PARALLEL_JOBS]         ]
 
 optional arguments:
     --training [TRAINING_PERCENTAGE]      default value 80
@@ -34,9 +37,12 @@ optional arguments:
     --dimensionality [HD_DIMENSION]       default value 10000
     --retrain [RETRAINING_ITERATIONS]     default value 1
     --spark [USE_SPARK]                   default value False
+    --gpu [USE_GPU]                       default value False
+    --tblock [GPU_THREADS_PER_BLOCK]      default value 32
+    --nproc [PARALLEL_JOBS]               default value 1
 
-If the --pickle parameter is specified, --dataset, --fieldsep, and --training parameters will not be used
-Use the --spark parameter to distribute the model generation work load over a Spark cluster if available
+If the --pickle parameter is specified, --dataset, --fieldsep, and --training parameters will not be used.
+Use the --spark parameter to distribute the model generation work load over a Spark cluster if available.
 ```
 
 ### Credits
