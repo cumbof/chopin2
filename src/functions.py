@@ -2,8 +2,19 @@ import os, random, copy, pickle, warnings
 import numpy as np
 import multiprocessing as mp
 from functools import partial
-from numba import cuda
 warnings.filterwarnings("ignore")
+
+# Try to load Spark
+try:
+    from pyspark import SparkConf, SparkContext
+except:
+    raise Exception( "PySpark not found" )
+
+# Try to load Numba
+try:
+    from numba import cuda
+except:
+    raise Exception( "Numba not found" )
 
 baseVal = -1
 
@@ -23,7 +34,7 @@ class HDModel(object):
     #   nproc: number of parallel jobs 
     #Outputs:
     #   HDModel object
-    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, spark=False, gpu=False, tblock=32, nproc=1):
+    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, spark=False, slices=None, gpu=False, tblock=32, nproc=1):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
             return
@@ -44,6 +55,7 @@ class HDModel(object):
         self.testHVs = []
         self.classHVs = []
         self.spark = spark
+        self.slices = slices
         self.gpu = gpu
         self.tblock = tblock
         self.nproc = nproc
@@ -56,8 +68,6 @@ class HDModel(object):
     #   none
     def buildBufferHVs(self, mode):
         if self.spark:
-            # Load PySpark on demand
-            from pyspark import SparkConf, SparkContext
             # Build a Spark context or use the existing one
             # Spark context must be initialised here (see SPARK-5063)
             config = SparkConf().setAppName( self.datasetName )
@@ -77,7 +87,7 @@ class HDModel(object):
                 print("Encoding Training Data")
                 if self.spark:
                     # Spark Context is running
-                    trainHVs = context.parallelize( list( zip( self.trainLabels, self.trainData ) ) )
+                    trainHVs = context.parallelize( list( zip( self.trainLabels, self.trainData ) ), numSlices=self.slices )
                     trainHVs.map( lambda label, obs: ( label, EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) ) )
                     trainHVs.saveAsPickleFile( train_bufferHVs )
                 else:
@@ -104,6 +114,7 @@ class HDModel(object):
             if self.spark:
                 # Spark Context is running
                 self.trainHVs = trainHVs.map( lambda obs: obs[ 1 ] ).collect()
+                self.trainLabels = trainHVs.map( lambda obs: obs[ 0 ] ).collect()
                 self.classHVs = trainHVs.reduceByKey( lambda obs1HV, obs2HV: np.add( obs1HV, obs2HV ) ).collectAsMap()
             else:
                 self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs, gpu=self.gpu, tblock=self.tblock)
@@ -113,7 +124,9 @@ class HDModel(object):
                 print("Loading Encoded Testing Data")
                 if self.spark:
                     # Spark Context is running
-                    self.testHVs = context.pickleFile( test_bufferHVs ).map( lambda obs: obs[ 1 ] ).collect()
+                    testHVs = context.pickleFile( test_bufferHVs )
+                    self.testHVs = testHVs.map( lambda obs: obs[ 1 ] ).collect()
+                    self.testLabels = testHVs.map( lambda obs: obs[ 0 ] ).collect()
                 else:
                     with open( '{}.pkl'.format( test_bufferHVs ), 'rb' ) as f:
                         self.testHVs = pickle.load(f)
@@ -121,10 +134,11 @@ class HDModel(object):
                 print("Encoding Testing Data")  
                 if self.spark:
                     # Spark Context is running
-                    testHVs = context.parallelize( list( zip( self.testLabels, self.testData ) ) )
+                    testHVs = context.parallelize( list( zip( self.testLabels, self.testData ) ), numSlices=self.slices )
                     testHVs.map( lambda label, obs: ( label, EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) ) )
                     testHVs.saveAsPickleFile( test_bufferHVs )
                     self.testHVs = testHVs.map( lambda obs: obs[ 1 ] ).collect()
+                    self.testLabels = testHVs.map( lambda obs: obs[ 0 ] ).collect()
                 else:
                     # Multiprocessing
                     testHVs = { }
@@ -277,27 +291,6 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32):
         levelHVs[level] = copy.deepcopy(base)
     return levelHVs
 
-def genLevelHVsNumba(totalLevel, D):
-    print('generating level HVs')
-    levelHVs = [ ]
-    indexVector = range( D )
-    change = int( D / 2 )
-    nextLevel = int( ( D / 2 / totalLevel ) )
-    base = np.full( D, baseVal )
-    toOne = np.random.permutation(indexVector)[:change]
-    blockspergrid = (toOne.size + (threadsperblock - 1)) // threadsperblock
-    GetBase[blockspergrid, threadsperblock](toOne, base)
-    for level in range(totalLevel):
-        name = level
-        toOne = np.random.permutation( indexVector )[ :nextLevel ]
-        # for index in toOne:
-            # base[index] = base[index] * -1
-        if toOne.size != 0:
-            blockspergrid = (toOne.size + (threadsperblock - 1)) // threadsperblock
-            GetBase[blockspergrid, threadsperblock](toOne, base)
-        levelHVs.append( np.copy( base ) )
-    return levelHVs
-
 def EncodeToHV_wrapper(inputBuffer, position, D=10000, levelHVs={}, levelList=[]):
     return position, EncodeToHV(inputBuffer, D, levelHVs, levelList)
 
@@ -323,7 +316,7 @@ def EncodeToHV(inputBuffer, D, levelHVs, levelList):
 #   inputHV: query hypervector
 #Outputs:
 #   guess: class that the model classifies the query hypervector as
-def checkVector(classHVs, inputHV):
+def checkVector(classHVs, inputHV, labelHV):
     guess = list(classHVs.keys())[0]
     maximum = np.NINF
     count = {}
@@ -332,6 +325,9 @@ def checkVector(classHVs, inputHV):
         if (count[key] > maximum):
             guess = key
             maximum = count[key]
+    if (labelHV == guess):
+        return (1, guess)
+    return (0, guess)
     return guess
 
 #Iterates through the training set once to retrain the model
@@ -346,7 +342,7 @@ def trainOneTime(classHVs, trainHVs, trainLabels):
     retClassHVs = copy.deepcopy(classHVs)
     wrong_num = 0
     for index in range(len(trainLabels)):
-        guess = checkVector(retClassHVs, trainHVs[index])
+        _, guess = checkVector(retClassHVs, trainHVs[index], trainLabels[index])
         if not (trainLabels[index] == guess):
             wrong_num += 1
             retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
@@ -362,15 +358,23 @@ def trainOneTime(classHVs, trainHVs, trainLabels):
 #   testLabels: testing labels
 #Outputs:
 #   accuracy: test accuracy
-def test (classHVs, testHVs, testLabels):
-    correct = 0
-    for index in range(len(testHVs)):
-        guess = checkVector(classHVs, testHVs[index])
-        if (testLabels[index] == guess):
-            correct += 1
+def test(classHVs, testHVs, testLabels, spark=False, slices=None, dataset=""):
+    if spark:
+        # Build a Spark context or use the existing one
+        # Spark context must be initialised here (see SPARK-5063)
+        config = SparkConf().setAppName( dataset )
+        context = SparkContext.getOrCreate( config )
+        occTestTuple = list( zip( testLabels, testHVs ) )
+        testRDD = context.parallelize( occTestTuple, numSlices=slices )
+        correct = sum( testRDD.map( lambda label, hv: checkVector(classHVs, hv, label)[ 0 ] ).collect() )
+        context.stop() 
+    else:
+        correct = 0
+        for index in range(len(testHVs)):
+            correct += checkVector(classHVs, testHVs[index], testLabels[index])[ 0 ]
     accuracy = (correct / len(testLabels)) * 100
     print('the accuracy is: {}'.format(accuracy))
-    return (accuracy)
+    return accuracy
 
 #Retrains the HD model n times and evaluates the accuracy of the model
 #after each retraining iteration
@@ -380,17 +384,20 @@ def test (classHVs, testHVs, testLabels):
 #   trainLabels: training labels
 #   testHVs: encoded test data
 #   testLabels: testing labels
+#   retrain: max retrain iterations
+#   spark: use Spark
+#   dataset: dataset name
 #Outputs:
 #   accuracy: array containing the accuracies after each retraining iteration
-def trainNTimes (classHVs, trainHVs, trainLabels, testHVs, testLabels, n):
+def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, spark=False, slices=None, dataset=""):
     accuracy = []
     currClassHV = copy.deepcopy(classHVs)
-    accuracy.append(test(currClassHV, testHVs, testLabels))
+    accuracy.append(test(currClassHV, testHVs, testLabels, spark=spark, slices=slices, dataset=dataset))
     prev_error = np.Inf
-    for i in range(n):
+    for i in range(retrain):
         print('iteration: {}'.format(i))
         currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels)
-        accuracy.append(test(currClassHV, testHVs, testLabels))
+        accuracy.append(test(currClassHV, testHVs, testLabels, spark=spark, slices=slices, dataset=dataset))
         if error == prev_error:
             break
         prev_error = error
@@ -413,10 +420,10 @@ def trainNTimes (classHVs, trainHVs, trainLabels, testHVs, testLabels, n):
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
 def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, 
-                 datasetName, workdir='./', spark=False, gpu=False, tblock=32, nproc=1):
+                 datasetName, workdir='./', spark=False, slices=None, gpu=False, tblock=32, nproc=1):
     # Initialise HDModel
     model = HDModel( datasetName, trainData, trainLabels, testData, testLables, 
-                     D, nLevels, workdir, spark=spark, gpu=gpu, tblock=tblock, nproc=nproc )
+                     D, nLevels, workdir, spark=spark, slices=slices, gpu=gpu, tblock=tblock, nproc=nproc )
     # Build training HD vectors
     model.buildBufferHVs("train")
     # Test model

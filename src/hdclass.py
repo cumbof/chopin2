@@ -49,6 +49,10 @@ def read_params():
                     action = 'store_true',
                     default = False,
                     help = "Build the classification model in a Apache Spark distributed environment" )
+    p.add_argument( '--slices', 
+                    type = int,
+                    help = ( "Number of threads per block in case --gpu argument is enabled. "
+                             "This argument is ignored if --spark is enabled" ) )
     p.add_argument( '--gpu',
                     action = 'store_true',
                     default = False,
@@ -107,8 +111,9 @@ if __name__ == '__main__':
                                   os.path.splitext(
                                     os.path.basename( picklepath )
                                   )[0],
-                                  os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
+                                  workdir=os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
                                   spark=args.spark,
+                                  slices=args.slices,
                                   gpu=args.gpu,
                                   tblock=args.tblock,
                                   nproc=args.nproc
@@ -120,7 +125,12 @@ if __name__ == '__main__':
         accuracy = fun.trainNTimes( model.classHVs, 
                                     model.trainHVs, model.trainLabels, 
                                     model.testHVs, model.testLabels, 
-                                    args.retrain
+                                    args.retrain,
+                                    spark=args.spark,
+                                    slices=args.slices,
+                                    dataset=os.path.splitext(
+                                                    os.path.basename( picklepath )
+                                                )[0]
                                   )
         t1acc = time.time()
         print( 'Total elapsed time (accuracy) {}s'.format( int( t1acc - t0acc ) ) )
