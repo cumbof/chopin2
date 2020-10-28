@@ -34,7 +34,8 @@ class HDModel(object):
     #   nproc: number of parallel jobs 
     #Outputs:
     #   HDModel object
-    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, spark=False, slices=None, gpu=False, tblock=32, nproc=1):
+    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, 
+                 spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
             return
@@ -54,10 +55,15 @@ class HDModel(object):
         self.trainHVs = []
         self.testHVs = []
         self.classHVs = []
+        # Spark params
         self.spark = spark
         self.slices = slices
+        self.master = master
+        self.memory = memory
+        # GPU params
         self.gpu = gpu
         self.tblock = tblock
+        # Standard multiprocessing params
         self.nproc = nproc
 
     #Encodes the training or testing data into hypervectors and saves them or
@@ -70,7 +76,8 @@ class HDModel(object):
         if self.spark:
             # Build a Spark context or use the existing one
             # Spark context must be initialised here (see SPARK-5063)
-            config = SparkConf().setAppName( self.datasetName )
+            config = SparkConf().setAppName( self.datasetName ).setMaster( self.master )
+            config = config.set( 'spark.executor.memory', self.memory )
             context = SparkContext.getOrCreate( config )
 
         if mode == "train":
@@ -327,26 +334,43 @@ def checkVector(classHVs, inputHV, labelHV):
             maximum = count[key]
     if (labelHV == guess):
         return (1, guess)
-    return (0, guess)
-    return guess
+    return (0, guess, labelHV, inputHV)
 
 #Iterates through the training set once to retrain the model
 #Inputs:
 #   classHVs: class hypervectors
 #   testHVs: encoded train data
 #   testLabels: training labels
+#   spark: use Spark
+#   dataset: dataset name
 #Outputs:
 #   retClassHVs: retrained class hypervectors
 #   error: retraining error rate
-def trainOneTime(classHVs, trainHVs, trainLabels):
+def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, master=None, memory=None, dataset=""):
     retClassHVs = copy.deepcopy(classHVs)
     wrong_num = 0
-    for index in range(len(trainLabels)):
-        _, guess = checkVector(retClassHVs, trainHVs[index], trainLabels[index])
-        if not (trainLabels[index] == guess):
-            wrong_num += 1
-            retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
-            retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
+    if spark:
+        # Build a Spark context or use the existing one
+        # Spark context must be initialised here (see SPARK-5063)
+        config = SparkConf().setAppName( dataset ).setMaster( master )
+        config = config.set( 'spark.executor.memory', memory )
+        context = SparkContext.getOrCreate( config )
+        occTrainTuple = list( zip( trainLabels, trainHVs ) )
+        trainRDD = context.parallelize( occTrainTuple, numSlices=slices )
+        trainTuple = trainRDD.map( lambda label, hv: checkVector(classHVs, hv, label) ).collect()
+        wrong_num = len(trainTuple) - sum( [item[0] for item in trainTuple] )
+        for index in range(len(trainTuple)):
+            if (trainTuple[index][0] == 0):
+                retClassHVs[trainTuple[index][1]] = retClassHVs[trainTuple[index][1]] - trainTuple[index][3]
+                retClassHVs[trainTuple[index][2]] = retClassHVs[trainTuple[index][2]] + trainTuple[index][3]
+        context.stop()
+    else:
+        for index in range(len(trainLabels)):
+            _, guess = checkVector(retClassHVs, trainHVs[index], trainLabels[index])
+            if not (trainLabels[index] == guess):
+                wrong_num += 1
+                retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
+                retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
     error = (wrong_num+0.0) / len(trainLabels)
     print('Error: {}'.format(error))
     return retClassHVs, error
@@ -358,11 +382,12 @@ def trainOneTime(classHVs, trainHVs, trainLabels):
 #   testLabels: testing labels
 #Outputs:
 #   accuracy: test accuracy
-def test(classHVs, testHVs, testLabels, spark=False, slices=None, dataset=""):
+def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, memory=None, dataset=""):
     if spark:
         # Build a Spark context or use the existing one
         # Spark context must be initialised here (see SPARK-5063)
-        config = SparkConf().setAppName( dataset )
+        config = SparkConf().setAppName( dataset ).setMaster( master )
+        config = config.set( 'spark.executor.memory', memory )
         context = SparkContext.getOrCreate( config )
         occTestTuple = list( zip( testLabels, testHVs ) )
         testRDD = context.parallelize( occTestTuple, numSlices=slices )
@@ -389,15 +414,19 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, dataset=""):
 #   dataset: dataset name
 #Outputs:
 #   accuracy: array containing the accuracies after each retraining iteration
-def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, spark=False, slices=None, dataset=""):
+def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, 
+                spark=False, slices=None, master=None, memory=None, dataset=""):
     accuracy = []
     currClassHV = copy.deepcopy(classHVs)
-    accuracy.append(test(currClassHV, testHVs, testLabels, spark=spark, slices=slices, dataset=dataset))
+    accuracy.append( test(currClassHV, testHVs, testLabels, 
+                          spark=spark, slices=slices, dataset=dataset) )
     prev_error = np.Inf
     for i in range(retrain):
         print('iteration: {}'.format(i))
-        currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels)
-        accuracy.append(test(currClassHV, testHVs, testLabels, spark=spark, slices=slices, dataset=dataset))
+        currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels, 
+                                          spark=spark, slices=slices, master=master, memory=memory, dataset=dataset)
+        accuracy.append( test(currClassHV, testHVs, testLabels, 
+                              spark=spark, slices=slices, master=master, memory=memory, dataset=dataset) )
         if error == prev_error:
             break
         prev_error = error
@@ -419,11 +448,12 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
 #   nproc: number of parallel jobs
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, 
-                 datasetName, workdir='./', spark=False, slices=None, gpu=False, tblock=32, nproc=1):
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', 
+                 spark=False, slices=None, master=None, memory=None,
+                 gpu=False, tblock=32, nproc=1):
     # Initialise HDModel
-    model = HDModel( datasetName, trainData, trainLabels, testData, testLables, 
-                     D, nLevels, workdir, spark=spark, slices=slices, gpu=gpu, tblock=tblock, nproc=nproc )
+    model = HDModel( datasetName, trainData, trainLabels, testData, testLables, D, nLevels, workdir, 
+                     spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc )
     # Build training HD vectors
     model.buildBufferHVs("train")
     # Test model

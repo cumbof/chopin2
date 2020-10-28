@@ -45,6 +45,7 @@ def read_params():
                     type = str,
                     help = ( "Path to the pickle file. If specified, both '--dataset', '--fieldsep', "
                              "and '--training' parameters are not used" ) )
+    # Apache Spark
     p.add_argument( '--spark',
                     action = 'store_true',
                     default = False,
@@ -53,6 +54,14 @@ def read_params():
                     type = int,
                     help = ( "Number of threads per block in case --gpu argument is enabled. "
                              "This argument is ignored if --spark is enabled" ) )
+    p.add_argument( '--master', 
+                    type = str,
+                    help = "Master node address" )
+    p.add_argument( '--memory', 
+                    type = str,
+                    default = "1024m",
+                    help = "Executor memory" )
+    # GPU parallelisation
     p.add_argument( '--gpu',
                     action = 'store_true',
                     default = False,
@@ -63,6 +72,7 @@ def read_params():
                     default = 32,
                     help = ( "Number of threads per block in case --gpu argument is enabled. "
                              "This argument is ignored if --spark is enabled" ) )
+    # Standard multiprocessing
     p.add_argument( '--nproc', 
                     type = int,
                     default = 1,
@@ -114,6 +124,8 @@ if __name__ == '__main__':
                                   workdir=os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
                                   spark=args.spark,
                                   slices=args.slices,
+                                  master=args.master,
+                                  memory=args.memory,
                                   gpu=args.gpu,
                                   tblock=args.tblock,
                                   nproc=args.nproc
@@ -128,6 +140,8 @@ if __name__ == '__main__':
                                     args.retrain,
                                     spark=args.spark,
                                     slices=args.slices,
+                                    master=args.master,
+                                    memory=args.memory,
                                     dataset=os.path.splitext(
                                                     os.path.basename( picklepath )
                                                 )[0]
