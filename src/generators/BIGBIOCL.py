@@ -1,5 +1,6 @@
 import os, pickle, random
 
+features = [ ]
 trainData = [ ]
 trainLabels = [ ]
 testData = [ ]
@@ -16,7 +17,7 @@ inputfile = os.path.join( basepath, "{}.csv".format(inputname) )
 classes = { }
 with open( inputfile ) as dataset:
     # skip header
-    dataset.readline()
+    features = dataset.readline().strip().split( ',' )[ 1: -1 ]
     # read dataset
     for line in dataset:
         line = line.strip()
@@ -57,11 +58,12 @@ with open( inputfile ) as dataset:
                 testData.append( line_split )
                 testLabels.append( label )
 
+print( len( features ) )
 print( len( trainData ) )
 print( len( trainLabels ) )
 print( len( testData ) )
 print( len( testLabels ) )
 
-pickledata = ( trainData, trainLabels, testData, testLabels )
+pickledata = ( features, trainData, trainLabels, testData, testLabels )
 with open( os.path.join( basepath, '{}.pkl'.format(inputname)), 'wb' ) as f:
     pickle.dump( pickledata, f )
