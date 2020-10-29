@@ -1,6 +1,7 @@
 import sys, os, pickle, random
 from pathlib import Path
 
+features = [ ]
 trainData = [ ]
 trainLabels = [ ]
 testData = [ ]
@@ -20,6 +21,7 @@ tumor = '{}-acc'.format( program )
 datatype = 'methylation_beta_value'
 metaabbr = 'mbv'
 valueidx = 5
+featureidx = 4
 
 # Gene-expression Quantification FPKM
 #datatype = 'gene_expression_quantification'
@@ -73,6 +75,7 @@ if len( classes ) > 1:
         if sample in training_samples or sample in test_samples:
             print( 'Reading {}'.format( sample ) )
             values = [ ]
+            addFeatures = len( features ) == 0
             with open( str( filepath ) ) as samplefile:
                 for line in samplefile:
                     line = line.strip()
@@ -82,18 +85,21 @@ if len( classes ) > 1:
                             values.append( float( value ) )
                         else:
                             values.append( 0.0 )
+                        if addFeatures:
+                            features.append( line.split( '\t' )[ featureidx ] )
             trainData.append( values ) if sample in training_samples else testData.append( values )
             for label in classes:
                 if sample in classes[ label ]:
                     trainLabels.append( label ) if sample in training_samples else testLabels.append( label )
                     break
 
+    print( len( features ) )
     print( len( trainData ) )
     print( len( trainLabels ) )
     print( len( testData ) )
     print( len( testLabels ) )
 
-    pickledata = ( trainData, trainLabels, testData, testLabels )
+    pickledata = ( features, trainData, trainLabels, testData, testLabels )
     with open( os.path.join( basepath, '{}.pkl'.format(inputname)), 'wb' ) as f:
         pickle.dump( pickledata, f )
 else:
