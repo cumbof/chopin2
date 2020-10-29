@@ -96,27 +96,35 @@ if __name__ == '__main__':
         # Load trainData, trainLabels, testData, testLabels
         with open( picklepath, 'rb' ) as picklefile:
             dataset = pickle.load( picklefile )
-        trainData, trainLabels, testData, testLabels = dataset
+        if len( dataset ) > 4:
+            # Define features, trainData, trainLabels, testData, and testLabels
+            features, trainData, trainLabels, testData, testLabels = dataset
+        else:
+            # Enable retro-compatibility for datasets with no features
+            feature = list( range( len( trainData[ 0 ] ) ) )
+            trainData, trainLabels, testData, testLabels = dataset
     else:
         # Otherwise, split the dataset into training and test sets
-        trainData, trainLabels, testData, testLabels = fun.buildDataset( args.dataset, 
-                                                                         separator=args.fieldsep,
-                                                                         training=args.training, 
-                                                                         seed=args.seed )
-        pickledata = ( trainData, trainLabels, testData, testLabels )
+        features, trainData, trainLabels, testData, testLabels = fun.buildDataset( args.dataset, 
+                                                                                   separator=args.fieldsep,
+                                                                                   training=args.training, 
+                                                                                   seed=args.seed )
+        # Dump pre-processed dataset to a pickle file
+        pickledata = ( features, trainData, trainLabels, testData, testLabels )
         picklepath = os.path.join( os.path.dirname( args.dataset ), 
                                    '{}.pkl'.format( os.path.splitext( os.path.basename( args.dataset ) )[ 0 ] ) )
         with open( picklepath, 'wb' ) as picklefile:
             pickle.dump( pickledata, picklefile )
     
-    # trainData:    this is a matrix where each row is a datapoint of the training set and each column is a feature
-    # trainLabels:  this is a array where each index contains the label for the data in the same row index of the trainData matrix
-    # testData:     this is a matrix where each row is a datapoint of the testing set and each column is a feature
-    # testLabels:   this is a array where each index contains the label for the data in the same row index of the testData matrix
-    if trainData and trainLabels and testData and testLabels:
+    # features:     List of features
+    # trainData:    Matrix in which each row is a datapoint of the training set and each column is a feature
+    # trainLabels:  List in which each index contains the label for the data in the same row index of the trainData matrix
+    # testData:     Matrix in which each row is a datapoint of the testing set and each column is a feature
+    # testLabels:   List in which each index contains the label for the data in the same row index of the testData matrix
+    if features and trainData and trainLabels and testData and testLabels:
         # Encodes the training data, testing data, and performs the initial training of the HD model
         t0model = time.time()
-        model = fun.buildHDModel( trainData, trainLabels, testData, testLabels, 
+        model = fun.buildHDModel( features, trainData, trainLabels, testData, testLabels, 
                                   args.dimensionality, args.levels, 
                                   os.path.splitext(
                                     os.path.basename( picklepath )

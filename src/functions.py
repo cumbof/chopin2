@@ -22,6 +22,7 @@ class HDModel(object):
     #Initializes a HDModel object
     #Inputs:
     #   datasetName; name of the dataset
+    #   features: list of features
     #   trainData: training data
     #   trainLabels: training labels
     #   testData: testing data
@@ -34,7 +35,7 @@ class HDModel(object):
     #   nproc: number of parallel jobs 
     #Outputs:
     #   HDModel object
-    def __init__(self, datasetName, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, 
+    def __init__(self, datasetName, features, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, 
                  spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
@@ -44,6 +45,7 @@ class HDModel(object):
             return
         self.datasetName = datasetName
         self.workdir = workdir
+        self.features = features
         self.trainData = trainData
         self.trainLabels = trainLabels
         self.testData = testData
@@ -448,11 +450,11 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain,
 #   nproc: number of parallel jobs
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', 
+def buildHDModel(features, trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', 
                  spark=False, slices=None, master=None, memory=None,
                  gpu=False, tblock=32, nproc=1):
     # Initialise HDModel
-    model = HDModel( datasetName, trainData, trainLabels, testData, testLables, D, nLevels, workdir, 
+    model = HDModel( datasetName, features, trainData, trainLabels, testData, testLables, D, nLevels, workdir, 
                      spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc )
     # Build training HD vectors
     model.buildBufferHVs("train")
@@ -467,19 +469,21 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
 def buildDataset( filepath, separator=',', training=80, seed=0 ):
     # Set a seed for the random sampling of the dataset
     random.seed( seed )
-    # Retrieve classes
+    # List of features
+    features = [ ]
+    # List of classes for each observation
     classes = [ ]
+    # Observations content
     content = [ ]
-    labels = [ ]
     with open( filepath ) as file:
+        features = file.readline().strip().split( separator )[ 1: -1 ]
         for line in file:
             line = line.strip()
             if line:
                 if not line.startswith( '#' ):
                     line_split = line.split( separator )
-                    classes.append( line_split[ 0 ] )
                     content.append( [ float( value ) for value in line_split[ 1: -1 ] ] )
-                    labels.append( line_split[ -1 ] )
+                    classes.append( line_split[ -1 ] )
     trainData = [ ]
     trainLabels = [ ]
     testData = [ ]
@@ -493,4 +497,4 @@ def buildDataset( filepath, separator=',', training=80, seed=0 ):
         trainLabels.extends( [ classid ]*len( training_indices ) )
         testData.extend( [ content[ idx ] for idx in indices if idx not in training_indices ] )
         testLabels.extends( [ classid ]*( len( indices )-len( training_indices ) ) )
-    return trainData, trainLabels, testData, testLabels
+    return features, trainData, trainLabels, testData, testLabels
