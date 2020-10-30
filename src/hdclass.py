@@ -4,7 +4,7 @@ __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)' )
 __version__ = '0.01'
 __date__ = 'Mar 27, 2020'
 
-import os, time, pickle
+import os, time, pickle, itertools
 import argparse as ap
 import numpy as np
 import functions as fun
@@ -45,6 +45,12 @@ def read_params():
                     type = str,
                     help = ( "Path to the pickle file. If specified, both '--dataset', '--fieldsep', "
                              "and '--training' parameters are not used" ) )
+    p.add_argument( '--features', 
+                    type = str,
+                    help = "Path to a file with a single column containing a subset of feature" )
+    p.add_argument( '--min_group',
+                    type = int,
+                    help = "Minimum amount of features among those specified with the --features argument" )
     # Apache Spark
     p.add_argument( '--spark',
                     action = 'store_true',
@@ -122,39 +128,71 @@ if __name__ == '__main__':
     # testData:     Matrix in which each row is a datapoint of the testing set and each column is a feature
     # testLabels:   List in which each index contains the label for the data in the same row index of the testData matrix
     if features and trainData and trainLabels and testData and testLabels:
-        # Encodes the training data, testing data, and performs the initial training of the HD model
-        t0model = time.time()
-        model = fun.buildHDModel( features, trainData, trainLabels, testData, testLabels, 
-                                  args.dimensionality, args.levels, 
-                                  os.path.splitext(
-                                    os.path.basename( picklepath )
-                                  )[0],
-                                  workdir=os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
-                                  spark=args.spark,
-                                  slices=args.slices,
-                                  master=args.master,
-                                  memory=args.memory,
-                                  gpu=args.gpu,
-                                  tblock=args.tblock,
-                                  nproc=args.nproc
-                                )
-        t1model = time.time()
-        print( 'Total elapsed time (model) {}s'.format( int( t1model - t0model ) ) )
-        # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
-        t0acc = time.time()
-        accuracy = fun.trainNTimes( model.classHVs, 
-                                    model.trainHVs, model.trainLabels, 
-                                    model.testHVs, model.testLabels, 
-                                    args.retrain,
-                                    spark=args.spark,
-                                    slices=args.slices,
-                                    master=args.master,
-                                    memory=args.memory,
-                                    dataset=os.path.splitext(
-                                                    os.path.basename( picklepath )
-                                                )[0]
-                                  )
-        t1acc = time.time()
-        print( 'Total elapsed time (accuracy) {}s'.format( int( t1acc - t0acc ) ) )
-        # Prints the maximum accuracy achieved
-        print( 'The maximum accuracy is: ' + str( max( accuracy ) ) )
+        # Define the set of features that must be considered for building the HD model
+        use_features = [ ]
+        if not args.features:
+            use_features = features
+        else:
+            with open( args.features ) as features_list:
+                for line in features_list:
+                    line = line.strip()
+                    if line:
+                        use_features.append( line )
+            recognised = list( set( use_features ).intersection( set( features ) ) )
+            if len( use_features ) > recognised:
+                print( 'The following features cannot be recognised: ' )
+                unrecognised = list( set( use_features ).difference( set( recognised ) ) )
+                for feature in unrecognised:
+                    print( '\t{}'.format( feature ) )
+        # Define the minimum amount of features per group
+        min_group = len( use_features ) if args.min_group is None else args.min_group
+        # For each group size
+        for group_size in range( min_group, len( use_features ) ):
+            # Define a set of N features with N equals to "group_size"
+            for comb_features in itertools.combinations( use_features, group_size ):
+                features_idx = [ ( feature in comb_features ) for feature in features ]
+                # Reshape trainData and testData if required
+                trainData_subset = trainData
+                testData_subset = testData
+                if len( comb_features ) < len( features ):
+                    trainData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in trainData ]
+                    testData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in testData ]
+                # Build unique identifier for the current set of features
+                features_hash = hash(tuple(comb_features))
+                # Encodes the training data, testing data, and performs the initial training of the HD model
+                t0model = time.time()
+                model = fun.buildHDModel( trainData_subset, trainLabels, testData_subset, testLabels, 
+                                          args.dimensionality, args.levels, 
+                                          os.path.splitext(
+                                            os.path.basename( picklepath )
+                                          )[0],
+                                          features_hash,
+                                          workdir=os.sep.join( picklepath.split( os.sep )[ :-1 ] ),
+                                          spark=args.spark,
+                                          slices=args.slices,
+                                          master=args.master,
+                                          memory=args.memory,
+                                          gpu=args.gpu,
+                                          tblock=args.tblock,
+                                          nproc=args.nproc
+                                        )
+                t1model = time.time()
+                print( 'Total elapsed time (model) {}s'.format( int( t1model - t0model ) ) )
+                # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
+                t0acc = time.time()
+                accuracy = fun.trainNTimes( model.classHVs, 
+                                            model.trainHVs, model.trainLabels, 
+                                            model.testHVs, model.testLabels, 
+                                            args.retrain,
+                                            spark=args.spark,
+                                            slices=args.slices,
+                                            master=args.master,
+                                            memory=args.memory,
+                                            dataset=os.path.splitext(
+                                                        os.path.basename( picklepath )
+                                                    )[0]
+                                          )
+                t1acc = time.time()
+                print( 'Total elapsed time (accuracy) {}s'.format( int( t1acc - t0acc ) ) )
+                # Prints the maximum accuracy achieved
+                print( 'The maximum accuracy is: ' + str( max( accuracy ) ) )

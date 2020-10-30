@@ -35,7 +35,7 @@ class HDModel(object):
     #   nproc: number of parallel jobs 
     #Outputs:
     #   HDModel object
-    def __init__(self, datasetName, features, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, 
+    def __init__(self, datasetName, hashId, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, 
                  spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1):
         if len(trainData) != len(trainLabels):
             print("Training data and training labels are not the same size")
@@ -44,8 +44,8 @@ class HDModel(object):
             print("Testing data and testing labels are not the same size")
             return
         self.datasetName = datasetName
+        self.hashId = hashId
         self.workdir = workdir
-        self.features = features
         self.trainData = trainData
         self.trainLabels = trainLabels
         self.testData = testData
@@ -83,7 +83,7 @@ class HDModel(object):
             context = SparkContext.getOrCreate( config )
 
         if mode == "train":
-            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}'.format( str(self.D), str(self.totalLevel) ) )
+            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}_{}'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
             if os.path.exists( train_bufferHVs ):
                 print("Loading Encoded Training Data")
                 if self.spark:
@@ -128,7 +128,7 @@ class HDModel(object):
             else:
                 self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs, gpu=self.gpu, tblock=self.tblock)
         else:
-            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}'.format( str(self.D), str(self.totalLevel) ) )
+            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}_{}'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
             if os.path.exists( test_bufferHVs ):
                 print("Loading Encoded Testing Data")
                 if self.spark:
@@ -450,11 +450,11 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain,
 #   nproc: number of parallel jobs
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(features, trainData, trainLabels, testData, testLables, D, nLevels, datasetName, workdir='./', 
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, hash_id, workdir='./', 
                  spark=False, slices=None, master=None, memory=None,
                  gpu=False, tblock=32, nproc=1):
     # Initialise HDModel
-    model = HDModel( datasetName, features, trainData, trainLabels, testData, testLables, D, nLevels, workdir, 
+    model = HDModel( datasetName, hash_id, trainData, trainLabels, testData, testLables, D, nLevels, workdir, 
                      spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc )
     # Build training HD vectors
     model.buildBufferHVs("train")
