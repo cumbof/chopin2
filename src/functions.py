@@ -36,12 +36,21 @@ class HDModel(object):
     #Outputs:
     #   HDModel object
     def __init__(self, datasetName, hashId, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, 
-                 spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1):
+                 spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1, 
+                 verbose=False, log=None):
         if len(trainData) != len(trainLabels):
-            print("Training data and training labels are not the same size")
+            message = "Training data and training labels do not have the same size"
+            if verbose:
+                print("\t{}".format(message))
+            if log is not None:
+                log.write( '{}\n'.format(message) )
             return
         if len(testData) != len(testLabels):
-            print("Testing data and testing labels are not the same size")
+            message = "Testing data and testing labels do not have the same size"
+            if verbose:
+                print("\t{}".format(message))
+            if log is not None:
+                log.write( "{}\n".format(message) )
             return
         self.datasetName = datasetName
         self.hashId = hashId
@@ -53,7 +62,7 @@ class HDModel(object):
         self.D = D
         self.totalLevel = totalLevel
         self.levelList = getlevelList(self.trainData, self.totalLevel)
-        self.levelHVs = genLevelHVs(self.totalLevel, self.D, gpu=gpu, tblock=tblock)
+        self.levelHVs = genLevelHVs(self.totalLevel, self.D, gpu=gpu, tblock=tblock, verbose=verbose, log=log)
         self.trainHVs = []
         self.testHVs = []
         self.classHVs = []
@@ -74,7 +83,7 @@ class HDModel(object):
     #   mode: decided to use train data or test data
     #Outputs:
     #   none
-    def buildBufferHVs(self, mode):
+    def buildBufferHVs(self, mode, verbose=False, log=None):
         if self.spark:
             # Build a Spark context or use the existing one
             # Spark context must be initialised here (see SPARK-5063)
@@ -85,7 +94,11 @@ class HDModel(object):
         if mode == "train":
             train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}_{}'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
             if os.path.exists( train_bufferHVs ):
-                print("Loading Encoded Training Data")
+                message = "Loading Encoded Training Data"
+                if verbose:
+                    print("\t{}".format(message))
+                if log is not None:
+                    log.write( "{}\n".format(message) )
                 if self.spark:
                     # Spark Context is running
                     trainHVs = context.pickleFile( train_bufferHVs )
@@ -93,7 +106,11 @@ class HDModel(object):
                     with open( '{}.pkl'.format( train_bufferHVs ), 'rb' ) as f:
                         self.trainHVs = pickle.load(f)
             else:
-                print("Encoding Training Data")
+                message = "Encoding Training Data"
+                if verbose:
+                    print("\t{}".format(message))
+                if log is not None:
+                    log.write( "{}\n".format(message) )
                 if self.spark:
                     # Spark Context is running
                     trainHVs = context.parallelize( list( zip( self.trainLabels, self.trainData ) ), numSlices=self.slices )
@@ -130,7 +147,11 @@ class HDModel(object):
         else:
             test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}_{}'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
             if os.path.exists( test_bufferHVs ):
-                print("Loading Encoded Testing Data")
+                message = "Loading Encoded Testing Data"
+                if verbose:
+                    print("\t{}".format(message))
+                if log is not None:
+                    log.write( "{}\n".format(message) )
                 if self.spark:
                     # Spark Context is running
                     testHVs = context.pickleFile( test_bufferHVs )
@@ -140,7 +161,11 @@ class HDModel(object):
                     with open( '{}.pkl'.format( test_bufferHVs ), 'rb' ) as f:
                         self.testHVs = pickle.load(f)
             else:
-                print("Encoding Testing Data")  
+                message = "Encoding Testing Data"
+                if verbose:
+                    print("\t{}".format(message))
+                if log is not None:
+                    log.write( "{}\n".format(message) )
                 if self.spark:
                     # Spark Context is running
                     testHVs = context.parallelize( list( zip( self.testLabels, self.testData ) ), numSlices=self.slices )
@@ -169,7 +194,6 @@ class HDModel(object):
                     #    self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
                     with open( '{}.pkl'.format( test_bufferHVs ), 'wb' ) as f:
                         pickle.dump(self.testHVs, f)
-        
         if self.spark:
             # Stop Spark context
             context.stop()
@@ -272,8 +296,12 @@ def getlevelList(buffers, totalLevel):
 #   tblock: threads per block
 #Outputs:
 #   levelHVs: level hypervector dictionary
-def genLevelHVs(totalLevel, D, gpu=False, tblock=32):
-    print('Generating level HVs')
+def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None):
+    message = "Generating HV levels"
+    if verbose:
+        print('\t{}'.format(message))
+    if log is not None:
+        log.write( '{}\n'.format(message) )
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
@@ -348,7 +376,7 @@ def checkVector(classHVs, inputHV, labelHV):
 #Outputs:
 #   retClassHVs: retrained class hypervectors
 #   error: retraining error rate
-def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, master=None, memory=None, dataset=""):
+def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
     retClassHVs = copy.deepcopy(classHVs)
     wrong_num = 0
     if spark:
@@ -374,7 +402,11 @@ def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, mast
                 retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
                 retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
     error = (wrong_num+0.0) / len(trainLabels)
-    print('Error: {}'.format(error))
+    message = "Error: {}".format(error)
+    if verbose:
+        print('\t{}'.format(message))
+    if log is not None:
+        log.write( '{}\n'.format(message) )
     return retClassHVs, error
 
 #Tests the HD model on the testing set
@@ -384,7 +416,7 @@ def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, mast
 #   testLabels: testing labels
 #Outputs:
 #   accuracy: test accuracy
-def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, memory=None, dataset=""):
+def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
     if spark:
         # Build a Spark context or use the existing one
         # Spark context must be initialised here (see SPARK-5063)
@@ -400,7 +432,11 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, m
         for index in range(len(testHVs)):
             correct += checkVector(classHVs, testHVs[index], testLabels[index])[ 0 ]
     accuracy = (correct / len(testLabels)) * 100
-    print('the accuracy is: {}'.format(accuracy))
+    message = "the accuracy is: {}".format(accuracy)
+    if verbose:
+        print('\t{}'.format(message))
+    if log is not None:
+        log.write( '{}\n'.format(message) )
     return accuracy
 
 #Retrains the HD model n times and evaluates the accuracy of the model
@@ -417,18 +453,25 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, m
 #Outputs:
 #   accuracy: array containing the accuracies after each retraining iteration
 def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, 
-                spark=False, slices=None, master=None, memory=None, dataset=""):
+                spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
     accuracy = []
     currClassHV = copy.deepcopy(classHVs)
     accuracy.append( test(currClassHV, testHVs, testLabels, 
-                          spark=spark, slices=slices, dataset=dataset) )
+                          spark=spark, slices=slices, master=master, memory=memory,
+                          dataset=dataset, verbose=verbose, log=log) )
     prev_error = np.Inf
     for i in range(retrain):
-        print('iteration: {}'.format(i))
+        message = "iteration: {}".format(i)
+        if verbose:
+            print('\t{}'.format(message))
+        if log is not None:
+            log.write( '{}\n'.format(message) )
         currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels, 
-                                          spark=spark, slices=slices, master=master, memory=memory, dataset=dataset)
+                                          spark=spark, slices=slices, master=master, memory=memory, 
+                                          dataset=dataset, verbose=verbose, log=log)
         accuracy.append( test(currClassHV, testHVs, testLabels, 
-                              spark=spark, slices=slices, master=master, memory=memory, dataset=dataset) )
+                              spark=spark, slices=slices, master=master, memory=memory, 
+                              dataset=dataset, verbose=verbose, log=log) )
         if error == prev_error:
             break
         prev_error = error
@@ -452,14 +495,16 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain,
 #   model: HDModel object containing the encoded data, labels, and class HVs
 def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, hash_id, workdir='./', 
                  spark=False, slices=None, master=None, memory=None,
-                 gpu=False, tblock=32, nproc=1):
+                 gpu=False, tblock=32, nproc=1, 
+                 verbose=False, log=None):
     # Initialise HDModel
     model = HDModel( datasetName, hash_id, trainData, trainLabels, testData, testLables, D, nLevels, workdir, 
-                     spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc )
-    # Build training HD vectors
-    model.buildBufferHVs("train")
-    # Test model
-    model.buildBufferHVs("test")
+                     spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc, 
+                     verbose=verbose, log=log )
+    # Build train HD vectors
+    model.buildBufferHVs("train", verbose=verbose, log=log)
+    # Build test HD vectors
+    model.buildBufferHVs("test", verbose=verbose, log=log)
     return model
 
 # Last line which starts with '#' will be considered header

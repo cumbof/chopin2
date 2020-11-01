@@ -4,7 +4,7 @@ __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)' )
 __version__ = '0.01'
 __date__ = 'Mar 27, 2020'
 
-import os, time, pickle, itertools
+import sys, os, time, pickle, itertools
 import argparse as ap
 import numpy as np
 import functions as fun
@@ -51,6 +51,9 @@ def read_params():
     p.add_argument( '--min_group',
                     type = int,
                     help = "Minimum amount of features among those specified with the --features argument" )
+    p.add_argument( '--dump', 
+                    type = str,
+                    help = "Path to the output file with classification results" )
     # Apache Spark
     p.add_argument( '--spark',
                     action = 'store_true',
@@ -71,8 +74,8 @@ def read_params():
     p.add_argument( '--gpu',
                     action = 'store_true',
                     default = False,
-                    help = "Build the classification model on an NVidia powered GPU. "
-                           "This argument is ignored if --spark is specified" )
+                    help = ( "Build the classification model on an NVidia powered GPU. "
+                             "This argument is ignored if --spark is specified" ) )
     p.add_argument( '--tblock', 
                     type = int,
                     default = 32,
@@ -84,6 +87,10 @@ def read_params():
                     default = 1,
                     help = ( "Number of parallel jobs for the creation of the HD model. "
                              "This argument is ignored if --spark is enabled" ) )
+    p.add_argument( '--verbose',
+                    action = 'store_true',
+                    default = False,
+                    help = "Print results in real time" )
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
@@ -146,10 +153,39 @@ if __name__ == '__main__':
                     print( '\t{}'.format( feature ) )
         # Define the minimum amount of features per group
         min_group = len( use_features ) if args.min_group is None else args.min_group
+        # Keep track of the best <group_size, accuracy>
+        mapping = { }
+        # Create the summary file
+        if args.dump:
+            summary = open( os.path.join( args.dump, 'summary.txt' ), 'w+' )
         # For each group size
         for group_size in range( min_group, len( use_features ) ):
             # Define a set of N features with N equals to "group_size"
             for comb_features in itertools.combinations( use_features, group_size ):
+                # Build unique identifier for the current set of features
+                features_hash = hash(tuple(comb_features)) % ((sys.maxsize + 1) * 2)
+                # Create a log for the current run
+                run = None
+                if args.dump:
+                    run = open( os.path.join( args.dump, '{}.log'.format( features_hash ) ), 'w+' )
+                    run.write( 'Run ID: {}\n'.format( features_hash ) )
+                    run.write( 'Group size: {}\n'.format( group_size ) )
+                # Print current run info
+                if args.verbose:
+                    print( 'Run ID: {}'.format( features_hash ) )
+                    print( 'Group size: {}'.format( group_size ) )
+                # Print the current set of features
+                if args.verbose:
+                    print( 'Features:' )
+                    for feature in comb_features:
+                        print( '\t{}'.format( feature ) )
+                    print( 'Reshape training and test datasets' )
+                # Keep track of the features in log
+                if args.dump:
+                    run.write( 'Features:\n' )
+                    for feature in comb_features:
+                        run.write( '\t{}\n'.format( feature ) )
+                # Features positions
                 features_idx = [ ( feature in comb_features ) for feature in features ]
                 # Reshape trainData and testData if required
                 trainData_subset = trainData
@@ -157,9 +193,9 @@ if __name__ == '__main__':
                 if len( comb_features ) < len( features ):
                     trainData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in trainData ]
                     testData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in testData ]
-                # Build unique identifier for the current set of features
-                features_hash = hash(tuple(comb_features))
                 # Encodes the training data, testing data, and performs the initial training of the HD model
+                if args.verbose:
+                    print( 'Build the HD model' )
                 t0model = time.time()
                 model = fun.buildHDModel( trainData_subset, trainLabels, testData_subset, testLabels, 
                                           args.dimensionality, args.levels, 
@@ -174,10 +210,14 @@ if __name__ == '__main__':
                                           memory=args.memory,
                                           gpu=args.gpu,
                                           tblock=args.tblock,
-                                          nproc=args.nproc
+                                          nproc=args.nproc,
+                                          verbose=args.verbose,
+                                          log=run
                                         )
                 t1model = time.time()
-                print( 'Total elapsed time (model) {}s'.format( int( t1model - t0model ) ) )
+                if args.verbose:
+                    print( 'Total elapsed time (model) {}s'.format( int( t1model - t0model ) ) )
+                    print( 'Test the HD model by retraining it {} times'.format( args.retrain ) )
                 # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
                 t0acc = time.time()
                 accuracy = fun.trainNTimes( model.classHVs, 
@@ -190,9 +230,34 @@ if __name__ == '__main__':
                                             memory=args.memory,
                                             dataset=os.path.splitext(
                                                         os.path.basename( picklepath )
-                                                    )[0]
+                                                    )[0],
+                                            verbose=args.verbose,
+                                            log=run
                                           )
                 t1acc = time.time()
-                print( 'Total elapsed time (accuracy) {}s'.format( int( t1acc - t0acc ) ) )
-                # Prints the maximum accuracy achieved
-                print( 'The maximum accuracy is: ' + str( max( accuracy ) ) )
+                best = max( accuracy )
+                if args.verbose:
+                    print( 'Total elapsed time (accuracy) {}s'.format( int( t1acc - t0acc ) ) )
+                    # Prints the maximum accuracy achieved
+                    print( 'The maximum accuracy is: ' + str( best ) )
+                # Keep track of the best accuracy for the current group size
+                if group_size in mapping:
+                    if mapping[ group_size ][ "accuracy" ] < best:
+                        mapping[ group_size ][ "accuracy" ] = best
+                        mapping[ group_size ][ "run" ] = features_hash
+                else:
+                    mapping[ group_size ] = {
+                        "accuracy": best,
+                        "run": features_hash
+                    }
+                # Close log
+                if args.dump:
+                    run.close()
+        # Keep track of the best results and close the summary
+        if args.dump:
+            for group_size in sorted(mapping.keys()):
+                summary.write( '{}\t{}\t{}\n'.format( group_size, 
+                                                      mapping[ group_size ][ "accuracy" ],
+                                                      mapping[ group_size ][ "run" ] ) )
+            # Close summary
+            summary.close()
