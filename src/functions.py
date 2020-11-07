@@ -2,6 +2,12 @@ import os, random, copy, pickle, warnings
 import numpy as np
 import multiprocessing as mp
 from functools import partial
+
+import traceback
+import weka.core.jvm as jvm
+from weka.core.converters import Loader
+from weka.attribute_selection import ASSearch, ASEvaluation, AttributeSelection
+
 warnings.filterwarnings("ignore")
 
 # Try to load Spark
@@ -387,16 +393,16 @@ def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, mast
         context = SparkContext.getOrCreate( config )
         occTrainTuple = list( zip( trainLabels, trainHVs ) )
         trainRDD = context.parallelize( occTrainTuple, numSlices=slices )
-        trainTuple = trainRDD.map( lambda label, hv: checkVector(classHVs, hv, label) ).collect()
-        wrong_num = len(trainTuple) - sum( [item[0] for item in trainTuple] )
+        trainTuple = trainRDD.map( lambda label, hv: checkVector(classHVs, hv, label) )
+        trainTuple = trainTuple.filter( lambda row: row[0] == 0 ).collect()
+        wrong_num = len(trainTuple)
         for index in range(len(trainTuple)):
-            if (trainTuple[index][0] == 0):
-                retClassHVs[trainTuple[index][1]] = retClassHVs[trainTuple[index][1]] - trainTuple[index][3]
-                retClassHVs[trainTuple[index][2]] = retClassHVs[trainTuple[index][2]] + trainTuple[index][3]
+            retClassHVs[trainTuple[index][1]] = retClassHVs[trainTuple[index][1]] - trainTuple[index][3]
+            retClassHVs[trainTuple[index][2]] = retClassHVs[trainTuple[index][2]] + trainTuple[index][3]
         context.stop()
     else:
         for index in range(len(trainLabels)):
-            _, guess = checkVector(retClassHVs, trainHVs[index], trainLabels[index])
+            guess = checkVector(retClassHVs, trainHVs[index], trainLabels[index])[1]
             if not (trainLabels[index] == guess):
                 wrong_num += 1
                 retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
@@ -511,7 +517,7 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
 # Last column contains classes
 # First column contains the IDs of the observations
 # Header line contains the feature names
-def buildDataset( filepath, separator=',', training=80, seed=0 ):
+def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
     # Set a seed for the random sampling of the dataset
     random.seed( seed )
     # List of features
@@ -543,3 +549,39 @@ def buildDataset( filepath, separator=',', training=80, seed=0 ):
         testData.extend( [ content[ idx ] for idx in indices if idx not in training_indices ] )
         testLabels.extends( [ classid ]*( len( indices )-len( training_indices ) ) )
     return features, trainData, trainLabels, testData, testLabels
+
+def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, outpath, sep=',' ):
+    data = trainData + testData
+    labels = trainLabels + testLabels
+    for observation in range( len( data ) ):
+        data[ observation ].append( labels[ observation ] )
+    features.append( 'class' )
+    data.insert( 0, features )
+    with open( outpath, 'w+' ) as flatfile:
+        for observation in range( len( data ) ):
+            flatfile.write( observation[ 0 ] )
+            for feature in range( 1, len( data[ observation ] ) ):
+                flatfile.write( '{}{}'.format( sep, data[ observation ][ feature ] ) )
+            flatfile.write( '\n' )
+
+def extractSubFeatures( dataset, nfeatures ):
+    # This is a wrapper for the Java WEKA package
+    try:
+        # Starting the JVM up
+        jvm.start()
+        loader = Loader( "weka.core.converters.CSVLoader" )
+        data = loader.load_file( dataset )
+        data.class_is_last()
+        # Performing selection by evaluating features correlation
+        search = ASSearch( classname="weka.attributeSelection.Ranker", 
+                           options=[ "-N", str(nfeatures) ] )
+        evaluation = ASEvaluation( classname="weka.attributeSelection.CorrelationAttributeEval" )
+        attsel = AttributeSelection()
+        attsel.search( search )
+        attsel.evaluator( evaluation )
+        attsel.select_attributes( data )
+        return list( attsel.selected_attributes )[ :-1 ]
+    except Exception as e:
+        print( traceback.format_exc() )
+    finally:
+        jvm.stop()

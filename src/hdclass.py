@@ -45,12 +45,19 @@ def read_params():
                     type = str,
                     help = ( "Path to the pickle file. If specified, both '--dataset', '--fieldsep', "
                              "and '--training' parameters are not used" ) )
-    p.add_argument( '--features', 
+    p.add_argument( '--nfeatures', 
+                    type = int,
+                    default = 0,
+                    help = ( "Select the best --features_number features with WEKA. "
+                             "Then, build the HD model by considering the selected features only" ) )
+    p.add_argument( '--lfeatures', 
                     type = str,
-                    help = "Path to a file with a single column containing a subset of feature" )
+                    help = "Path to a file with a single column containing the whole set or a subset of feature" )
     p.add_argument( '--min_group',
                     type = int,
-                    help = "Minimum amount of features among those specified with the --features argument" )
+                    help = ( "Minimum number of features among those specified with the --features argument. " 
+                             "It is equals to the number of features under --features if not specified. "
+                             "Otherwise, it must be less or equals to the number of features under --features " ) )
     p.add_argument( '--dump', 
                     type = str,
                     help = "Path to the output file with classification results" )
@@ -114,14 +121,14 @@ if __name__ == '__main__':
             features, trainData, trainLabels, testData, testLabels = dataset
         else:
             # Enable retro-compatibility for datasets with no features
-            feature = list( range( len( trainData[ 0 ] ) ) )
+            feature = [ str(f) for f in range( len( trainData[ 0 ] ) ) ]
             trainData, trainLabels, testData, testLabels = dataset
     else:
         # Otherwise, split the dataset into training and test sets
-        features, trainData, trainLabels, testData, testLabels = fun.buildDataset( args.dataset, 
-                                                                                   separator=args.fieldsep,
-                                                                                   training=args.training, 
-                                                                                   seed=args.seed )
+        features, trainData, trainLabels, testData, testLabels = fun.buildDatasetPKL( args.dataset, 
+                                                                                      separator=args.fieldsep,
+                                                                                      training=args.training, 
+                                                                                      seed=args.seed )
         # Dump pre-processed dataset to a pickle file
         pickledata = ( features, trainData, trainLabels, testData, testLabels )
         picklepath = os.path.join( os.path.dirname( args.dataset ), 
@@ -137,17 +144,26 @@ if __name__ == '__main__':
     if features and trainData and trainLabels and testData and testLabels:
         # Define the set of features that must be considered for building the HD model
         use_features = [ ]
-        if not args.features:
-            use_features = features
+        if not args.lfeatures:
+            if args.nfeatures > 0:
+                # Automatically select relevant features with WEKA (weka.attributeSelection.Ranker)
+                # WEKA does not work on pickles
+                # Rebuild the original dataset if it does not exist
+                dataset_filepath = '{}.csv'.format( os.path.splitext( args.dataset )[ 0 ] )
+                if not os.path.exists( dataset_filepath ):
+                    fun.buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, dataset_filepath, sep=',' )
+                use_features = fun.extractSubFeatures( dataset_filepath, args.nfeatures )
+            else:
+                use_features = features
         else:
-            with open( args.features ) as features_list:
+            with open( args.lfeatures ) as features_list:
                 for line in features_list:
                     line = line.strip()
                     if line:
                         use_features.append( line )
             recognised = list( set( use_features ).intersection( set( features ) ) )
             if len( use_features ) > recognised:
-                print( 'The following features cannot be recognised: ' )
+                print( 'The following features cannot be recognised and will not be considered: ' )
                 unrecognised = list( set( use_features ).difference( set( recognised ) ) )
                 for feature in unrecognised:
                     print( '\t{}'.format( feature ) )
@@ -159,11 +175,11 @@ if __name__ == '__main__':
         if args.dump:
             summary = open( os.path.join( args.dump, 'summary.txt' ), 'w+' )
         # For each group size
-        for group_size in range( min_group, len( use_features ) ):
+        for group_size in range( min_group, len( use_features ) + 1 ):
             # Define a set of N features with N equals to "group_size"
             for comb_features in itertools.combinations( use_features, group_size ):
                 # Build unique identifier for the current set of features
-                features_hash = hash(tuple(comb_features)) % ((sys.maxsize + 1) * 2)
+                features_hash = hash( tuple( comb_features ) ) % ( ( sys.maxsize + 1 ) * 2 )
                 # Create a log for the current run
                 run = None
                 if args.dump:
