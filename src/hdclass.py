@@ -53,11 +53,12 @@ def read_params():
     p.add_argument( '--lfeatures', 
                     type = str,
                     help = "Path to a file with a single column containing the whole set or a subset of feature" )
-    p.add_argument( '--min_group',
+    p.add_argument( '--group',
                     type = int,
-                    help = ( "Minimum number of features among those specified with the --features argument. " 
+                    help = ( "Minimum and maximum number of features among those specified with the --features argument. " 
                              "It is equals to the number of features under --features if not specified. "
-                             "Otherwise, it must be less or equals to the number of features under --features " ) )
+                             "Otherwise, it must be less or equals to the number of features under --features. "
+                             "Syntax: min:max" ) )
     p.add_argument( '--dump', 
                     type = str,
                     help = "Path to the output file with classification results" )
@@ -162,20 +163,32 @@ if __name__ == '__main__':
                     if line:
                         use_features.append( line )
             recognised = list( set( use_features ).intersection( set( features ) ) )
-            if len( use_features ) > recognised:
-                print( 'The following features cannot be recognised and will not be considered: ' )
-                unrecognised = list( set( use_features ).difference( set( recognised ) ) )
-                for feature in unrecognised:
-                    print( '\t{}'.format( feature ) )
-        # Define the minimum amount of features per group
-        min_group = len( use_features ) if args.min_group is None else args.min_group
+            if args.verbose:
+                if len( use_features ) > recognised:
+                    print( 'The following features cannot be recognised and will not be considered: ' )
+                    unrecognised = list( set( use_features ).difference( set( recognised ) ) )
+                    for feature in unrecognised:
+                        print( '\t{}'.format( feature ) )
+        # Define the minimum and maximum number of features per group
+        if args.group:
+            try:
+                min_group, max_group = [ int(g) for g in args.group.split( ':' ) ]
+                if min_group > max_group:
+                    raise Exception( ( "Incorrect --group argument! "
+                                       "Left end must be greater than or equals to the right end" ) )
+            except:
+                raise Exception( ( "Incorrect --group argument! "
+                                   "Interval must contain numbers" ) )
+        else:
+            min_group = len( use_features )
+            max_group = len( use_features )
         # Keep track of the best <group_size, accuracy>
         mapping = { }
         # Create the summary file
         if args.dump:
             summary = open( os.path.join( args.dump, 'summary.txt' ), 'w+' )
         # For each group size
-        for group_size in range( min_group, len( use_features ) + 1 ):
+        for group_size in range( min_group, max_group + 1 ):
             # Define a set of N features with N equals to "group_size"
             for comb_features in itertools.combinations( use_features, group_size ):
                 # Build unique identifier for the current set of features
