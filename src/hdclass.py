@@ -45,12 +45,7 @@ def read_params():
                     type = str,
                     help = ( "Path to the pickle file. If specified, both '--dataset', '--fieldsep', "
                              "and '--training' parameters are not used" ) )
-    p.add_argument( '--nfeatures', 
-                    type = int,
-                    default = 0,
-                    help = ( "Select the best --features_number features with WEKA. "
-                             "Then, build the HD model by considering the selected features only" ) )
-    p.add_argument( '--lfeatures', 
+    p.add_argument( '--features', 
                     type = str,
                     help = "Path to a file with a single column containing the whole set or a subset of feature" )
     p.add_argument( '--group',
@@ -58,6 +53,7 @@ def read_params():
                     help = ( "Minimum and maximum number of features among those specified with the --features argument. " 
                              "It is equals to the number of features under --features if not specified. "
                              "Otherwise, it must be less or equals to the number of features under --features. "
+                             "Warning: computationally intense! "
                              "Syntax: min:max" ) )
     p.add_argument( '--dump', 
                     type = str,
@@ -122,8 +118,8 @@ if __name__ == '__main__':
             features, trainData, trainLabels, testData, testLabels = dataset
         else:
             # Enable retro-compatibility for datasets with no features
-            feature = [ str(f) for f in range( len( trainData[ 0 ] ) ) ]
             trainData, trainLabels, testData, testLabels = dataset
+            feature = [ str(f) for f in range( len( trainData[ 0 ] ) ) ]
     else:
         # Otherwise, split the dataset into training and test sets
         features, trainData, trainLabels, testData, testLabels = fun.buildDatasetPKL( args.dataset, 
@@ -145,19 +141,8 @@ if __name__ == '__main__':
     if features and trainData and trainLabels and testData and testLabels:
         # Define the set of features that must be considered for building the HD model
         use_features = [ ]
-        if not args.lfeatures:
-            if args.nfeatures > 0:
-                # Automatically select relevant features with WEKA (weka.attributeSelection.Ranker)
-                # WEKA does not work on pickles
-                # Rebuild the original dataset if it does not exist
-                dataset_filepath = '{}.csv'.format( os.path.splitext( args.dataset )[ 0 ] )
-                if not os.path.exists( dataset_filepath ):
-                    fun.buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, dataset_filepath, sep=',' )
-                use_features = fun.extractSubFeatures( dataset_filepath, args.nfeatures )
-            else:
-                use_features = features
-        else:
-            with open( args.lfeatures ) as features_list:
+        if args.features:
+            with open( args.features ) as features_list:
                 for line in features_list:
                     line = line.strip()
                     if line:
@@ -169,6 +154,8 @@ if __name__ == '__main__':
                     unrecognised = list( set( use_features ).difference( set( recognised ) ) )
                     for feature in unrecognised:
                         print( '\t{}'.format( feature ) )
+        else:
+            use_features = features
         # Define the minimum and maximum number of features per group
         if args.group:
             try:
@@ -189,6 +176,11 @@ if __name__ == '__main__':
             summary = open( os.path.join( args.dump, 'summary.txt' ), 'w+' )
         # For each group size
         for group_size in range( min_group, max_group + 1 ):
+            # Create a directory for the current run
+            if args.dump:
+                group_dir = os.path.join( args.dump, "batch_{}".format( group_size ) )
+                if not os.path.exists( group_dir ):
+                    os.mkdir( group_dir )
             # Define a set of N features with N equals to "group_size"
             for comb_features in itertools.combinations( use_features, group_size ):
                 # Build unique identifier for the current set of features
@@ -196,7 +188,7 @@ if __name__ == '__main__':
                 # Create a log for the current run
                 run = None
                 if args.dump:
-                    run = open( os.path.join( args.dump, '{}.log'.format( features_hash ) ), 'w+' )
+                    run = open( os.path.join( group_dir, '{}.log'.format( features_hash ) ), 'w+' )
                     run.write( 'Run ID: {}\n'.format( features_hash ) )
                     run.write( 'Group size: {}\n'.format( group_size ) )
                 # Print current run info
