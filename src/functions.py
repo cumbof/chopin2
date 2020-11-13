@@ -2,27 +2,21 @@ import os, random, copy, pickle, warnings
 import numpy as np
 import multiprocessing as mp
 from functools import partial
-
-import traceback
-import weka.core.jvm as jvm
-from weka.core.converters import Loader
-from weka.attribute_selection import ASSearch, ASEvaluation, AttributeSelection
-
 warnings.filterwarnings("ignore")
 
 # Try to load Spark
 try:
     from pyspark import SparkConf, SparkContext
 except:
-    raise Exception( "PySpark not found" )
+    print( "PySpark not found" )
+    pass
 
 # Try to load Numba
 try:
     from numba import cuda
 except:
-    raise Exception( "Numba not found" )
-
-baseVal = -1
+    print( "Numba not found" )
+    pass
 
 class HDModel(object):
     #Initializes a HDModel object
@@ -313,7 +307,8 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None):
     nextLevel = int((D/2/totalLevel))
     change = int(D / 2)
     # First level
-    base = np.full( D, baseVal )
+    # Fill base vector all with -1
+    base = np.full( D, -1 )
     toOne = np.random.permutation(indexVector)[:change]
     if gpu:
         blocksPerGrid = (toOne.size + (tblock - 1))
@@ -550,6 +545,7 @@ def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
         testLabels.extends( [ classid ]*( len( indices )-len( training_indices ) ) )
     return features, trainData, trainLabels, testData, testLabels
 
+# Rebuild the original CSV dataset starting from the PKL file
 def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, outpath, sep=',' ):
     data = trainData + testData
     labels = trainLabels + testLabels
@@ -563,25 +559,3 @@ def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, ou
             for feature in range( 1, len( data[ observation ] ) ):
                 flatfile.write( '{}{}'.format( sep, data[ observation ][ feature ] ) )
             flatfile.write( '\n' )
-
-def extractSubFeatures( dataset, nfeatures ):
-    # This is a wrapper for the Java WEKA package
-    try:
-        # Starting the JVM up
-        jvm.start()
-        loader = Loader( "weka.core.converters.CSVLoader" )
-        data = loader.load_file( dataset )
-        data.class_is_last()
-        # Performing selection by evaluating features correlation
-        search = ASSearch( classname="weka.attributeSelection.Ranker", 
-                           options=[ "-N", str(nfeatures) ] )
-        evaluation = ASEvaluation( classname="weka.attributeSelection.CorrelationAttributeEval" )
-        attsel = AttributeSelection()
-        attsel.search( search )
-        attsel.evaluator( evaluation )
-        attsel.select_attributes( data )
-        return list( attsel.selected_attributes )[ :-1 ]
-    except Exception as e:
-        print( traceback.format_exc() )
-    finally:
-        jvm.stop()
