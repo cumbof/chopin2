@@ -306,21 +306,13 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None):
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
     change = int(D / 2)
-    # First level
-    # Fill base vector all with -1
-    base = np.full( D, -1 )
-    toOne = np.random.permutation(indexVector)[:change]
-    if gpu:
-        blocksPerGrid = (toOne.size + (tblock - 1))
-        gpu_base[blocksPerGrid, tblock](toOne, base)
-    else:
-        for index in toOne:
-            base[index] = base[index] * -1
-    levelHVs[0] = copy.deepcopy(base)
-    # Generate all the other levels
-    for level in range(1, totalLevel):
-        toOne = np.random.permutation(indexVector)[:nextLevel]
-        if gpu:
+    for level in range(totalLevel):
+        if level == 0:
+            base = np.full( D, -1 )
+            toOne = np.random.permutation(indexVector)[:change]
+        else:
+            toOne = np.random.permutation(indexVector)[:nextLevel]
+        if gpu and toOne.size != 0:
             blocksPerGrid = (toOne.size + (tblock - 1))
             gpu_base[blocksPerGrid, tblock](toOne, base)
         else:
@@ -388,7 +380,7 @@ def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, mast
         context = SparkContext.getOrCreate( config )
         occTrainTuple = list( zip( trainLabels, trainHVs ) )
         trainRDD = context.parallelize( occTrainTuple, numSlices=slices )
-        trainTuple = trainRDD.map( lambda label, hv: checkVector(classHVs, hv, label) )
+        trainTuple = trainRDD.map( lambda label_hv : checkVector( retClassHVs, label_hv[1], label_hv[0] ) )
         trainTuple = trainTuple.filter( lambda row: row[0] == 0 ).collect()
         wrong_num = len(trainTuple)
         for index in range(len(trainTuple)):
@@ -426,7 +418,7 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, m
         context = SparkContext.getOrCreate( config )
         occTestTuple = list( zip( testLabels, testHVs ) )
         testRDD = context.parallelize( occTestTuple, numSlices=slices )
-        correct = sum( testRDD.map( lambda label, hv: checkVector(classHVs, hv, label)[ 0 ] ).collect() )
+        correct = sum( testRDD.map( lambda label_hv: checkVector( classHVs, label_hv[1], label_hv[0] )[0] ).collect() )
         context.stop() 
     else:
         correct = 0
@@ -522,7 +514,8 @@ def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
     # Observations content
     content = [ ]
     with open( filepath ) as file:
-        features = file.readline().strip().split( separator )[ 1: -1 ]
+        # Trim the first and last columns out (Observation ID and Class)
+        features = [ f.strip() for f in file.readline().split( separator )[ 1: -1 ] ]
         for line in file:
             line = line.strip()
             if line:
@@ -555,7 +548,4 @@ def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, ou
     data.insert( 0, features )
     with open( outpath, 'w+' ) as flatfile:
         for observation in range( len( data ) ):
-            flatfile.write( observation[ 0 ] )
-            for feature in range( 1, len( data[ observation ] ) ):
-                flatfile.write( '{}{}'.format( sep, data[ observation ][ feature ] ) )
-            flatfile.write( '\n' )
+            flatfile.write( '{}\n'.format( sep.join( [ str(value) for value in data[ observation ] ] ) ) )
