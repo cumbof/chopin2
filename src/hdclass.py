@@ -4,7 +4,7 @@ __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)' )
 __version__ = '0.01'
 __date__ = 'Mar 27, 2020'
 
-import sys, os, time, pickle, itertools
+import sys, os, time, pickle, itertools, hashlib
 import argparse as ap
 import numpy as np
 import functions as fun
@@ -174,6 +174,7 @@ if __name__ == '__main__':
         # Create the summary file
         if args.dump:
             summary = open( os.path.join( args.dump, 'summary.txt' ), 'w+' )
+            summary.write( '# Group Size\tBest Accuracy\tRun ID\n' )
         # For each group size
         for group_size in range( min_group, max_group + 1 ):
             # Create a directory for the current run
@@ -184,7 +185,8 @@ if __name__ == '__main__':
             # Define a set of N features with N equals to "group_size"
             for comb_features in itertools.combinations( use_features, group_size ):
                 # Build unique identifier for the current set of features
-                features_hash = hash( tuple( comb_features ) ) % ( ( sys.maxsize + 1 ) * 2 )
+                #features_hash = hash( tuple( comb_features ) ) % ( ( sys.maxsize + 1 ) * 2 )
+                features_hash = hashlib.md5(str(sorted(comb_features)).encode()).hexdigest()
                 # Create a log for the current run
                 run = None
                 if args.dump:
