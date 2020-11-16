@@ -24,6 +24,10 @@ def read_params():
                     type = int,
                     default = 1,
                     help = "Number of retraining iterations" )
+    p.add_argument( '--stop',
+                    action = 'store_true',
+                    default = False,
+                    help = "Stop retraining if the error rate does not change" )
     p.add_argument( '--dataset', 
                     type = str,
                     help = "Path to the dataset pickle file" )
@@ -247,6 +251,7 @@ if __name__ == '__main__':
                                             model.trainHVs, model.trainLabels, 
                                             model.testHVs, model.testLabels, 
                                             args.retrain,
+                                            stop=args.stop,
                                             spark=args.spark,
                                             slices=args.slices,
                                             master=args.master,

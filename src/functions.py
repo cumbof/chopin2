@@ -445,7 +445,7 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, m
 #   dataset: dataset name
 #Outputs:
 #   accuracy: array containing the accuracies after each retraining iteration
-def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, 
+def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, stop=False,
                 spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
     accuracy = []
     currClassHV = copy.deepcopy(classHVs)
@@ -465,7 +465,7 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain,
         accuracy.append( test(currClassHV, testHVs, testLabels, 
                               spark=spark, slices=slices, master=master, memory=memory, 
                               dataset=dataset, verbose=verbose, log=log) )
-        if error == prev_error:
+        if error == prev_error and stop:
             break
         prev_error = error
     return accuracy
