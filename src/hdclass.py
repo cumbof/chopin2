@@ -53,7 +53,7 @@ def read_params():
                     type = str,
                     help = "Path to a file with a single column containing the whole set or a subset of feature" )
     p.add_argument( '--group',
-                    type = int,
+                    type = str,
                     help = ( "Minimum and maximum number of features among those specified with the --features argument. " 
                              "It is equals to the number of features under --features if not specified. "
                              "Otherwise, it must be less or equals to the number of features under --features. "
