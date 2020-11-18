@@ -39,18 +39,10 @@ class HDModel(object):
                  spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1, 
                  verbose=False, log=None):
         if len(trainData) != len(trainLabels):
-            message = "Training data and training labels do not have the same size"
-            if verbose:
-                print("\t{}".format(message))
-            if log is not None:
-                log.write( '{}\n'.format(message) )
+            printlog( "Training data and training labels do not have the same size", verbose=verbose, out=log )
             return
         if len(testData) != len(testLabels):
-            message = "Testing data and testing labels do not have the same size"
-            if verbose:
-                print("\t{}".format(message))
-            if log is not None:
-                log.write( "{}\n".format(message) )
+            printlog( "Testing data and testing labels do not have the same size", verbose=verbose, out=log )
             return
         self.datasetName = datasetName
         self.hashId = hashId
@@ -62,7 +54,15 @@ class HDModel(object):
         self.D = D
         self.totalLevel = totalLevel
         self.levelList = getlevelList(self.trainData, self.totalLevel)
-        self.levelHVs = genLevelHVs(self.totalLevel, self.D, gpu=gpu, tblock=tblock, verbose=verbose, log=log)
+        levels_bufferHVs = os.path.join( self.workdir, 'levels_bufferHVs_{}_{}_{}.pkl'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
+        if os.path.exists( levels_bufferHVs ):
+            printlog( "Loading HV levels\n\t{}".format( levels_bufferHVs ), verbose=verbose, out=log )
+            self.levelHVs = pickle.load( open( levels_bufferHVs, 'rb' ) )
+        else:
+            printlog( "Generating HV levels\n\t{}".format( levels_bufferHVs ), verbose=verbose, out=log )
+            self.levelHVs = genLevelHVs(self.totalLevel, self.D, gpu=gpu, tblock=tblock, verbose=verbose, log=log)
+            with open( levels_bufferHVs, 'wb' ) as f:
+                pickle.dump(self.levelHVs, f)
         self.trainHVs = []
         self.testHVs = []
         self.classHVs = []
@@ -92,29 +92,22 @@ class HDModel(object):
             context = SparkContext.getOrCreate( config )
 
         if mode == "train":
-            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}_{}'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
+            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}_{}{}'.format( str(self.D), str(self.totalLevel), str(self.hashId),
+                                                                                               '.pkl' if not self.spark else '' ) )
             if os.path.exists( train_bufferHVs ):
-                message = "Loading Encoded Training Data"
-                if verbose:
-                    print("\t{}".format(message))
-                if log is not None:
-                    log.write( "{}\n".format(message) )
+                printlog( "Loading Encoded Training Data\n\t{}".format( train_bufferHVs ), verbose=verbose, out=log )
                 if self.spark:
                     # Spark Context is running
                     trainHVs = context.pickleFile( train_bufferHVs )
                 else:
-                    with open( '{}.pkl'.format( train_bufferHVs ), 'rb' ) as f:
+                    with open( train_bufferHVs, 'rb' ) as f:
                         self.trainHVs = pickle.load(f)
             else:
-                message = "Encoding Training Data"
-                if verbose:
-                    print("\t{}".format(message))
-                if log is not None:
-                    log.write( "{}\n".format(message) )
+                printlog( "Encoding Training Data\n\t{}".format( train_bufferHVs ), verbose=verbose, out=log )
                 if self.spark:
                     # Spark Context is running
                     trainHVs = context.parallelize( list( zip( self.trainLabels, self.trainData ) ), numSlices=self.slices )
-                    trainHVs.map( lambda label, obs: ( label, EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) ) )
+                    trainHVs = trainHVs.map( lambda label_obs: ( label_obs[0], EncodeToHV( label_obs[1], self.D, self.levelHVs, self.levelList ) ) )
                     trainHVs.saveAsPickleFile( train_bufferHVs )
                 else:
                     # Multiprocessing
@@ -127,7 +120,7 @@ class HDModel(object):
 
                         chunks = [ self.trainData[ i: i+self.nproc ] for i in range( 0, len(self.trainData), self.nproc ) ]
                         for cid in range( 0, len( chunks ) ):
-                            positions = list( range( cid*len(chunks[ cid ]), (cid*len(chunks[ cid ]))+len(chunks[ cid ]) ) )
+                            positions = list( range( cid*len(chunks[ 0 ]), (cid*len(chunks[ 0 ]))+len(chunks[ cid ]) ) )
                             results = pool.starmap( EncodeToHVPartial, zip( chunks[ cid ], positions ) )
                             for position, vector in results:
                                 trainHVs[ position ] = vector
@@ -135,7 +128,7 @@ class HDModel(object):
                     # Sequential
                     #for index in range(len(self.trainData)):
                     #    self.trainHVs.append(EncodeToHV(np.array(self.trainData[index]), self.D, self.levelHVs, self.levelList))
-                    with open( '{}.pkl'.format( train_bufferHVs ), 'wb' ) as f:
+                    with open( train_bufferHVs, 'wb' ) as f:
                         pickle.dump(self.trainHVs, f)
             if self.spark:
                 # Spark Context is running
@@ -145,31 +138,24 @@ class HDModel(object):
             else:
                 self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs, gpu=self.gpu, tblock=self.tblock)
         else:
-            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}_{}'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
+            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}_{}{}'.format( str(self.D), str(self.totalLevel), str(self.hashId),
+                                                                                             '.pkl' if not self.spark else '' ) )
             if os.path.exists( test_bufferHVs ):
-                message = "Loading Encoded Testing Data"
-                if verbose:
-                    print("\t{}".format(message))
-                if log is not None:
-                    log.write( "{}\n".format(message) )
+                printlog( "Loading Encoded Testing Data\n\t{}".format( test_bufferHVs ), verbose=verbose, out=log )
                 if self.spark:
                     # Spark Context is running
                     testHVs = context.pickleFile( test_bufferHVs )
                     self.testHVs = testHVs.map( lambda obs: obs[ 1 ] ).collect()
                     self.testLabels = testHVs.map( lambda obs: obs[ 0 ] ).collect()
                 else:
-                    with open( '{}.pkl'.format( test_bufferHVs ), 'rb' ) as f:
+                    with open( test_bufferHVs, 'rb' ) as f:
                         self.testHVs = pickle.load(f)
             else:
-                message = "Encoding Testing Data"
-                if verbose:
-                    print("\t{}".format(message))
-                if log is not None:
-                    log.write( "{}\n".format(message) )
+                printlog( "Encoding Testing Data\n\t{}".format( test_bufferHVs ), verbose=verbose, out=log )
                 if self.spark:
                     # Spark Context is running
                     testHVs = context.parallelize( list( zip( self.testLabels, self.testData ) ), numSlices=self.slices )
-                    testHVs.map( lambda label, obs: ( label, EncodeToHV( obs, self.D, self.levelHVs, self.levelList ) ) )
+                    testHVs = testHVs.map( lambda label_obs: ( label_obs[0], EncodeToHV( label_obs[1], self.D, self.levelHVs, self.levelList ) ) )
                     testHVs.saveAsPickleFile( test_bufferHVs )
                     self.testHVs = testHVs.map( lambda obs: obs[ 1 ] ).collect()
                     self.testLabels = testHVs.map( lambda obs: obs[ 0 ] ).collect()
@@ -184,7 +170,7 @@ class HDModel(object):
                     
                         chunks = [ self.testData[ i: i+self.nproc ] for i in range( 0, len(self.testData), self.nproc ) ]
                         for cid in range( 0, len( chunks ) ):
-                            positions = list( range( cid*len(chunks[ cid ]), (cid*len(chunks[ cid ]))+len(chunks[ cid ]) ) )
+                            positions = list( range( cid*len(chunks[ 0 ]), (cid*len(chunks[ 0 ]))+len(chunks[ cid ]) ) )
                             results = pool.starmap( EncodeToHVPartial, zip( chunks[ cid ], positions ) )
                             for position, vector in results:
                                 testHVs[ position ] = vector
@@ -192,7 +178,7 @@ class HDModel(object):
                     # Sequential
                     #for index in range(len(self.testData)):
                     #    self.testHVs.append(EncodeToHV(np.array(self.testData[index]), self.D, self.levelHVs, self.levelList))
-                    with open( '{}.pkl'.format( test_bufferHVs ), 'wb' ) as f:
+                    with open( test_bufferHVs, 'wb' ) as f:
                         pickle.dump(self.testHVs, f)
         if self.spark:
             # Stop Spark context
@@ -297,11 +283,6 @@ def getlevelList(buffers, totalLevel):
 #Outputs:
 #   levelHVs: level hypervector dictionary
 def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None):
-    message = "Generating HV levels"
-    if verbose:
-        print('\t{}'.format(message))
-    if log is not None:
-        log.write( '{}\n'.format(message) )
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
@@ -369,37 +350,17 @@ def checkVector(classHVs, inputHV, labelHV):
 #Outputs:
 #   retClassHVs: retrained class hypervectors
 #   error: retraining error rate
-def trainOneTime(classHVs, trainHVs, trainLabels, spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
+def trainOneTime(classHVs, trainHVs, trainLabels, dataset="", verbose=False, log=None):
     retClassHVs = copy.deepcopy(classHVs)
     wrong_num = 0
-    if spark:
-        # Build a Spark context or use the existing one
-        # Spark context must be initialised here (see SPARK-5063)
-        config = SparkConf().setAppName( dataset ).setMaster( master )
-        config = config.set( 'spark.executor.memory', memory )
-        context = SparkContext.getOrCreate( config )
-        occTrainTuple = list( zip( trainLabels, trainHVs ) )
-        trainRDD = context.parallelize( occTrainTuple, numSlices=slices )
-        trainTuple = trainRDD.map( lambda label_hv : checkVector( retClassHVs, label_hv[1], label_hv[0] ) )
-        trainTuple = trainTuple.filter( lambda row: row[0] == 0 ).collect()
-        wrong_num = len(trainTuple)
-        for index in range(len(trainTuple)):
-            retClassHVs[trainTuple[index][1]] = retClassHVs[trainTuple[index][1]] - trainTuple[index][3]
-            retClassHVs[trainTuple[index][2]] = retClassHVs[trainTuple[index][2]] + trainTuple[index][3]
-        context.stop()
-    else:
-        for index in range(len(trainLabels)):
-            guess = checkVector(retClassHVs, trainHVs[index], trainLabels[index])[1]
-            if not (trainLabels[index] == guess):
-                wrong_num += 1
-                retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
-                retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
-    error = (wrong_num+0.0) / len(trainLabels)
-    message = "Error: {}".format(error)
-    if verbose:
-        print('\t{}'.format(message))
-    if log is not None:
-        log.write( '{}\n'.format(message) )
+    for index in range(len(trainLabels)):
+        guess = checkVector(retClassHVs, trainHVs[index], trainLabels[index])[1]
+        if not (trainLabels[index] == guess):
+            wrong_num += 1
+            retClassHVs[guess] = retClassHVs[guess] - trainHVs[index]
+            retClassHVs[trainLabels[index]] = retClassHVs[trainLabels[index]] + trainHVs[index]
+    error = wrong_num / len(trainLabels)
+    printlog( "\tError: {}".format(error), verbose=verbose, out=log )
     return retClassHVs, error
 
 #Tests the HD model on the testing set
@@ -425,11 +386,7 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, m
         for index in range(len(testHVs)):
             correct += checkVector(classHVs, testHVs[index], testLabels[index])[ 0 ]
     accuracy = (correct / len(testLabels)) * 100
-    message = "the accuracy is: {}".format(accuracy)
-    if verbose:
-        print('\t{}'.format(message))
-    if log is not None:
-        log.write( '{}\n'.format(message) )
+    printlog( "\tThe accuracy is: {}".format(accuracy), verbose=verbose, out=log )
     return accuracy
 
 #Retrains the HD model n times and evaluates the accuracy of the model
@@ -454,13 +411,8 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
                           dataset=dataset, verbose=verbose, log=log) )
     prev_error = np.Inf
     for i in range(retrain):
-        message = "iteration: {}".format(i)
-        if verbose:
-            print('\t{}'.format(message))
-        if log is not None:
-            log.write( '{}\n'.format(message) )
+        printlog( "Retraining iteration: {}".format(i+1), verbose=verbose, out=log )
         currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels, 
-                                          spark=spark, slices=slices, master=master, memory=memory, 
                                           dataset=dataset, verbose=verbose, log=log)
         accuracy.append( test(currClassHV, testHVs, testLabels, 
                               spark=spark, slices=slices, master=master, memory=memory, 
@@ -530,12 +482,12 @@ def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
     for classid in list( set( classes ) ):
         training_amount = int( ( float( classes.count( classid ) ) * float( training ) ) / 100.0 )
         # Create the training set by random sampling
-        indices = [ pos for pos in classes if classes[ pos ] == classid ]
+        indices = [ pos for pos, val in enumerate(classes) if val == classid ]
         training_indices = random.sample( indices, training_amount )
         trainData.extend( [ content[ idx ] for idx in training_indices ] )
-        trainLabels.extends( [ classid ]*len( training_indices ) )
+        trainLabels.extend( [ classid ]*len( training_indices ) )
         testData.extend( [ content[ idx ] for idx in indices if idx not in training_indices ] )
-        testLabels.extends( [ classid ]*( len( indices )-len( training_indices ) ) )
+        testLabels.extend( [ classid ]*( len( indices )-len( training_indices ) ) )
     return features, trainData, trainLabels, testData, testLabels
 
 # Rebuild the original CSV dataset starting from the PKL file
@@ -549,3 +501,19 @@ def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, ou
     with open( outpath, 'w+' ) as flatfile:
         for observation in range( len( data ) ):
             flatfile.write( '{}\n'.format( sep.join( [ str(value) for value in data[ observation ] ] ) ) )
+
+def printlog( message, data=[], end_msg=None, verbose=False, out=None ):
+    if verbose:
+        print( message )
+    if out != None:
+        out.write( '{}\n'.format( message ) )
+    for line in data:
+        if verbose:
+            print( '\t{}'.format( line ) )
+        if out != None:
+            out.write( '\t{}\n'.format( line ) )
+    if end_msg != None:
+        if verbose:
+            print( end_msg )
+        if out != None:
+            out.write( '{}\n'.format( end_msg ) )
