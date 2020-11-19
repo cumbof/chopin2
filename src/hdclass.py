@@ -63,6 +63,10 @@ def read_params():
                     action = 'store_true',
                     default = False,
                     help = "Build a summary and log files" )
+    p.add_argument( '--cleanup', 
+                    action = 'store_true',
+                    default = False,
+                    help = "Delete the classification model as soon as it produces the prediction accuracy" )
     # Apache Spark
     p.add_argument( '--spark',
                     action = 'store_true',
@@ -108,11 +112,18 @@ def read_params():
     return p.parse_args()
 
 if __name__ == '__main__':
-    print( 'hdclass v{} ({})'.format( __version__, __date__ ) )
     # Load command line parameters
     args = read_params()
-
+    fun.printlog( 
+        'hdclass v{} ({})'.format( __version__, __date__ ),
+        verbose=args.verbose
+    )
+    
     if args.pickle:
+        fun.printlog( 
+            'Loading features, trainData, trainLabels, testData, and testLabels from the pickle file',
+            verbose=args.verbose
+        )
         # If the pickle file already exists
         picklepath = args.pickle
         # Load trainData, trainLabels, testData, testLabels
@@ -123,9 +134,19 @@ if __name__ == '__main__':
             features, trainData, trainLabels, testData, testLabels = dataset
         else:
             # Enable retro-compatibility for datasets with no features
+            fun.printlog( 
+                '\tFeatures not found! They will be initialised as incremental numbers',
+                verbose=args.verbose
+            )
             trainData, trainLabels, testData, testLabels = dataset
-            feature = [ str(f) for f in range( len( trainData[ 0 ] ) ) ]
+            features = [ str(f) for f in range( len( trainData[ 0 ] ) ) ]
     else:
+        fun.printlog( 
+            'Loading dataset\n\tDataset: {}\n\tTraining percentage: {}\n\tSeed: {}'.format( args.dataset,
+                                                                                            args.training,
+                                                                                            args.seed ),
+            verbose=args.verbose
+        )
         # Otherwise, split the dataset into training and test sets
         features, trainData, trainLabels, testData, testLabels = fun.buildDatasetPKL( args.dataset, 
                                                                                       separator=args.fieldsep,
@@ -135,6 +156,10 @@ if __name__ == '__main__':
         pickledata = ( features, trainData, trainLabels, testData, testLabels )
         picklepath = os.path.join( os.path.dirname( args.dataset ), 
                                    '{}.pkl'.format( os.path.splitext( os.path.basename( args.dataset ) )[ 0 ] ) )
+        fun.printlog( 
+            'Dumping dataset to pickle file\n\t{}'.format( picklepath ),
+            verbose=args.verbose
+        )
         with open( picklepath, 'wb' ) as picklefile:
             pickle.dump( pickledata, picklefile )
     
@@ -158,7 +183,7 @@ if __name__ == '__main__':
                     unrecognised = list( set( use_features ).difference( set( recognised ) ) )
                     fun.printlog( 
                         'The following features cannot be recognised and will not be considered:',
-                        unrecognised,
+                        data=unrecognised,
                         verbose=args.verbose
                     )
         else:
@@ -182,12 +207,12 @@ if __name__ == '__main__':
         if args.dump:
             summary_filepath = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), 'summary.txt' )
             summary_exists = os.path.exists( summary_filepath )
-            summary = open( summary_filepath, 'a+' )
             if not summary_exists:
-                fun.printlog( 
-                    '# Run ID\tGroup Size\tDimensionality\tLevels\tRetraining\tBest Accuracy',
-                    out=summary
-                )
+                with open( summary_filepath, 'a+' ) as summary:
+                    fun.printlog( 
+                        '# Run ID\tGroup Size\tDimensionality\tLevels\tRetraining\tBest Accuracy',
+                        out=summary
+                    )
         # For each group size
         for group_size in reversed( range( min_group, max_group + 1 ) ):
             if group_size > 0:
@@ -200,6 +225,8 @@ if __name__ == '__main__':
                 best_features = use_features
                 if group_size - 1 in mapping:
                     best_features = mapping[ group_size -1 ][ "features" ]
+                combinations = fun.count_combinations( len(best_features), group_size )
+                combinations_counter = 1
                 # Define a set of N features with N equals to "group_size"
                 for comb_features in itertools.combinations( best_features, group_size ):
                     # Build unique identifier for the current set of features
@@ -217,7 +244,9 @@ if __name__ == '__main__':
                         run = open( run_filepath, 'w+' )
                     # Print current run info and features
                     fun.printlog( 
-                        'Run ID: {}\nGroup size: {}\nFeatures:'.format( '{}_{}'.format( features_hash, copy_id ), group_size ),
+                        'Combination {}/{}\nRun ID: {}\nGroup size: {}\nFeatures:'.format( combinations_counter, combinations,
+                                                                                           '{}_{}'.format( features_hash, copy_id ), 
+                                                                                           group_size ),
                         data=comb_features,
                         end_msg='Reshape training and test datasets',
                         verbose=args.verbose,
@@ -300,14 +329,16 @@ if __name__ == '__main__':
                     # Close log
                     if args.dump:
                         run.close()
-        # Keep track of the best results and close the summary
-        if args.dump:
-            for group_size in sorted(mapping.keys()):
-                fun.printlog( 
-                    '{}\t{}\t{}\t{}\t{}\t{}'.format( mapping[ group_size ][ "run" ], group_size, 
-                                                     args.dimensionality, args.levels, args.retrain, 
-                                                     mapping[ group_size ][ "accuracy" ] ),
-                    out=summary
-                )
-            # Close summary
-            summary.close()
+                    # Cleanup
+                    if args.cleanup:
+                        fun.cleanup( group_dir, args.dimensionality, args.levels, features_hash, spark=args.spark )
+                    combinations_counter += 1
+                # Keep track of the best results and close the summary
+                if args.dump:
+                    with open( summary_filepath, 'a+' ) as summary:
+                        fun.printlog( 
+                            '{}\t{}\t{}\t{}\t{}\t{}'.format( mapping[ group_size ][ "run" ], group_size, 
+                                                            args.dimensionality, args.levels, args.retrain, 
+                                                            mapping[ group_size ][ "accuracy" ] ),
+                            out=summary
+                        )
