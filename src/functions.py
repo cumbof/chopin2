@@ -239,6 +239,7 @@ def numToKey(value, levelList):
     lowerIndex = 0
     keyIndex = 0
     while (upperIndex > lowerIndex):
+        prec_level = levelList[keyIndex]
         keyIndex = int((upperIndex + lowerIndex)/2)
         if (levelList[keyIndex] <= value and levelList[keyIndex+1] > value):
             return keyIndex
@@ -248,7 +249,9 @@ def numToKey(value, levelList):
         else:
             lowerIndex = keyIndex
             keyIndex = int((upperIndex + lowerIndex)/2)
-    return keyIndex  
+        if levelList[keyIndex] == prec_level:
+            lowerIndex = lowerIndex + 1
+    return keyIndex
 
 #Splits up the feature value range into level hypervector ranges
 #Inputs:
