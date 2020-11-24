@@ -179,7 +179,7 @@ if __name__ == '__main__':
                         use_features.append( line )
             recognised = list( set( use_features ).intersection( set( features ) ) )
             if args.verbose:
-                if len( use_features ) > recognised:
+                if len( use_features ) > len( recognised ):
                     unrecognised = list( set( use_features ).difference( set( recognised ) ) )
                     fun.printlog( 
                         'The following features cannot be recognised and will not be considered:',
@@ -214,131 +214,153 @@ if __name__ == '__main__':
                         out=summary
                     )
         # For each group size
+        prev_group_size = np.Inf
         for group_size in reversed( range( min_group, max_group + 1 ) ):
-            if group_size > 0:
-                # Create a directory for the current run
-                group_dir = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), "HVs", "run_{}".format( group_size ) )
-                if not os.path.exists( group_dir ):
-                    os.makedirs( group_dir )
+            if group_size > 0 and group_size < prev_group_size:
                 # Select the best set of features according to the last iteration
+                # use the intersection of the features for the best runs
                 # Otherwise, use the whole set of features
                 best_features = use_features
-                if group_size - 1 in mapping:
-                    best_features = mapping[ group_size -1 ][ "features" ]
-                combinations = fun.count_combinations( len(best_features), group_size )
-                combinations_counter = 1
-                # Define a set of N features with N equals to "group_size"
-                for comb_features in itertools.combinations( best_features, group_size ):
-                    # Build unique identifier for the current set of features
-                    #features_hash = hash( tuple( comb_features ) ) % ( ( sys.maxsize + 1 ) * 2 )
-                    features_hash = hashlib.md5(str(sorted(comb_features)).encode()).hexdigest()
-                    # Create a log for the current run
-                    run = None
-                    copy_id = 0
-                    run_filepath = os.path.join( group_dir, '{}_{}.log'.format( features_hash, copy_id ) )
-                    # Do not overwrite old logs
-                    while os.path.exists( run_filepath ):
-                        copy_id += 1
+                if group_size +1 in mapping:
+                    best_features = [ ]
+                    for run in mapping[ group_size +1 ]:
+                        best_features = list( set(best_features).intersection(set(run[ "features" ])) ) if best_features else run[ "features" ]
+                    group_size = len( best_features ) -1
+                    prev_group_size = group_size
+                if group_size > 0:
+                    # Create a directory for the current run
+                    group_dir = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), "HVs", "run_{}".format( group_size ) )
+                    if not os.path.exists( group_dir ):
+                        os.makedirs( group_dir )
+                    combinations = fun.count_combinations( len(best_features), group_size )
+                    combinations_counter = 1
+                    # Define a set of N features with N equals to "group_size"
+                    for comb_features in itertools.combinations( best_features, group_size ):
+                        # Build unique identifier for the current set of features
+                        #features_hash = hash( tuple( comb_features ) ) % ( ( sys.maxsize + 1 ) * 2 )
+                        features_hash = hashlib.md5(str(sorted(comb_features)).encode()).hexdigest()
+                        # Create a log for the current run
+                        run = None
+                        copy_id = 0
                         run_filepath = os.path.join( group_dir, '{}_{}.log'.format( features_hash, copy_id ) )
-                    if args.dump:
-                        run = open( run_filepath, 'w+' )
-                    # Print current run info and features
-                    fun.printlog( 
-                        'Combination {}/{}\nRun ID: {}\nGroup size: {}\nFeatures:'.format( combinations_counter, combinations,
-                                                                                           '{}_{}'.format( features_hash, copy_id ), 
-                                                                                           group_size ),
-                        data=comb_features,
-                        end_msg='Reshape training and test datasets',
-                        verbose=args.verbose,
-                        out=run
-                    )
-                    # Features positions
-                    features_idx = [ ( feature in comb_features ) for feature in features ]
-                    # Reshape trainData and testData if required
-                    trainData_subset = trainData
-                    testData_subset = testData
-                    if len( comb_features ) < len( features ):
-                        trainData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in trainData ]
-                        testData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in testData ]
-                    # Encodes the training data, testing data, and performs the initial training of the HD model
-                    fun.printlog( 
-                        'Build the HD model\n\t--dimensionality {}\n\t--levels {}'.format( args.dimensionality, args.levels ),
-                        verbose=args.verbose,
-                        out=run
-                    )
-                    t0model = time.time()
-                    model = fun.buildHDModel( trainData_subset, trainLabels, testData_subset, testLabels, 
-                                              args.dimensionality, args.levels, 
-                                              os.path.splitext(
-                                                os.path.basename( picklepath )
-                                              )[0],
-                                              features_hash,
-                                              workdir=group_dir,
-                                              spark=args.spark,
-                                              slices=args.slices,
-                                              master=args.master,
-                                              memory=args.memory,
-                                              gpu=args.gpu,
-                                              tblock=args.tblock,
-                                              nproc=args.nproc,
-                                              verbose=args.verbose,
-                                              log=run
-                                            )
-                    t1model = time.time()
-                    fun.printlog( 
-                        'Total elapsed time (model) {}s\nTest the HD model by retraining it {} times'.format( int( t1model - t0model ), args.retrain ),
-                        verbose=args.verbose,
-                        out=run
-                    )
-                    # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
-                    t0acc = time.time()
-                    accuracy = fun.trainNTimes( model.classHVs, 
-                                                model.trainHVs, model.trainLabels, 
-                                                model.testHVs, model.testLabels, 
-                                                args.retrain,
-                                                stop=args.stop,
+                        # Do not overwrite old logs
+                        while os.path.exists( run_filepath ):
+                            copy_id += 1
+                            run_filepath = os.path.join( group_dir, '{}_{}.log'.format( features_hash, copy_id ) )
+                        if args.dump:
+                            run = open( run_filepath, 'w+' )
+                        # Print current run info and features
+                        fun.printlog( 
+                            'Combination {}/{}\nRun ID: {}\nGroup size: {}\nFeatures:'.format( combinations_counter, combinations,
+                                                                                            '{}_{}'.format( features_hash, copy_id ), 
+                                                                                            group_size ),
+                            data=comb_features,
+                            end_msg='Reshape training and test datasets',
+                            verbose=args.verbose,
+                            out=run
+                        )
+                        # Features positions
+                        features_idx = [ ( feature in comb_features ) for feature in features ]
+                        # Reshape trainData and testData if required
+                        trainData_subset = trainData
+                        testData_subset = testData
+                        if len( comb_features ) < len( features ):
+                            trainData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in trainData ]
+                            testData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in testData ]
+                        # Encodes the training data, testing data, and performs the initial training of the HD model
+                        fun.printlog( 
+                            'Build the HD model\n\t--dimensionality {}\n\t--levels {}'.format( args.dimensionality, args.levels ),
+                            verbose=args.verbose,
+                            out=run
+                        )
+                        t0model = time.time()
+                        model = fun.buildHDModel( trainData_subset, trainLabels, testData_subset, testLabels, 
+                                                args.dimensionality, args.levels, 
+                                                os.path.splitext(
+                                                    os.path.basename( picklepath )
+                                                )[0],
+                                                features_hash,
+                                                workdir=group_dir,
                                                 spark=args.spark,
                                                 slices=args.slices,
                                                 master=args.master,
                                                 memory=args.memory,
-                                                dataset=os.path.splitext(
-                                                            os.path.basename( picklepath )
-                                                        )[0],
+                                                gpu=args.gpu,
+                                                tblock=args.tblock,
+                                                nproc=args.nproc,
                                                 verbose=args.verbose,
                                                 log=run
-                                            )
-                    t1acc = time.time()
-                    best = max( accuracy )
-                    fun.printlog( 
-                        'Total elapsed time (accuracy) {}s\nThe maximum accuracy is: {}'.format( int( t1acc - t0acc ), best ),
-                        verbose=args.verbose,
-                        out=run
-                    )
-                    # Keep track of the best accuracy for the current group size
-                    if group_size in mapping:
-                        if mapping[ group_size ][ "accuracy" ] < best:
-                            mapping[ group_size ][ "accuracy" ] = best
-                            mapping[ group_size ][ "run" ] = features_hash
-                            mapping[ group_size ][ "features" ] = comb_features
-                    else:
-                        mapping[ group_size ] = {
-                            "accuracy": best,
-                            "run": features_hash,
-                            "features": comb_features
-                        }
-                    # Close log
-                    if args.dump:
-                        run.close()
-                    # Cleanup
-                    if args.cleanup:
-                        fun.cleanup( group_dir, args.dimensionality, args.levels, features_hash, spark=args.spark )
-                    combinations_counter += 1
-                # Keep track of the best results and close the summary
-                if args.dump:
-                    with open( summary_filepath, 'a+' ) as summary:
+                                                )
+                        t1model = time.time()
                         fun.printlog( 
-                            '{}\t{}\t{}\t{}\t{}\t{}'.format( mapping[ group_size ][ "run" ], group_size, 
-                                                            args.dimensionality, args.levels, args.retrain, 
-                                                            mapping[ group_size ][ "accuracy" ] ),
-                            out=summary
+                            'Total elapsed time (model) {}s\nTest the HD model by retraining it {} times'.format( int( t1model - t0model ), args.retrain ),
+                            verbose=args.verbose,
+                            out=run
                         )
+                        # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
+                        t0acc = time.time()
+                        accuracy = fun.trainNTimes( model.classHVs, 
+                                                    model.trainHVs, model.trainLabels, 
+                                                    model.testHVs, model.testLabels, 
+                                                    args.retrain,
+                                                    stop=args.stop,
+                                                    spark=args.spark,
+                                                    slices=args.slices,
+                                                    master=args.master,
+                                                    memory=args.memory,
+                                                    dataset=os.path.splitext(
+                                                                os.path.basename( picklepath )
+                                                            )[0],
+                                                    verbose=args.verbose,
+                                                    log=run
+                                                )
+                        t1acc = time.time()
+                        best = max( accuracy )
+                        fun.printlog( 
+                            'Total elapsed time (accuracy) {}s\nThe maximum accuracy is: {}'.format( int( t1acc - t0acc ), best ),
+                            verbose=args.verbose,
+                            out=run
+                        )
+                        # Keep track of the best accuracy for the current group size
+                        if group_size in mapping:
+                            if mapping[ group_size ][ 0 ][ "accuracy" ] < best:
+                                mapping[ group_size ] = [
+                                    {
+                                        "accuracy": best,
+                                        "run": features_hash,
+                                        "features": comb_features
+                                    }
+                                ]
+                            elif mapping[ group_size ][ 0 ][ "accuracy" ] == best:
+                                mapping[ group_size ].append(
+                                    {
+                                        "accuracy": best,
+                                        "run": features_hash,
+                                        "features": comb_features
+                                    }
+                                )
+                        else:
+                            mapping[ group_size ] = [
+                                {
+                                    "accuracy": best,
+                                    "run": features_hash,
+                                    "features": comb_features
+                                }
+                            ]
+                        # Close log
+                        if args.dump:
+                            run.close()
+                        # Cleanup
+                        if args.cleanup:
+                            fun.cleanup( group_dir, args.dimensionality, args.levels, features_hash, spark=args.spark )
+                        combinations_counter += 1
+                    # Keep track of the best results and close the summary
+                    if args.dump:
+                        with open( summary_filepath, 'a+' ) as summary:
+                            for run in mapping[ group_size ]:
+                                fun.printlog( 
+                                    '{}\t{}\t{}\t{}\t{}\t{}'.format( run[ "run" ], group_size, 
+                                                                    args.dimensionality, args.levels, args.retrain, 
+                                                                    run[ "accuracy" ] ),
+                                    out=summary
+                                )
