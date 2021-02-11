@@ -4,7 +4,7 @@ __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)' )
 __version__ = '0.01'
 __date__ = 'Mar 27, 2020'
 
-import sys, os, time, pickle, itertools, hashlib
+import sys, os, time, pickle, itertools, hashlib, math
 import argparse as ap
 import numpy as np
 import functions as fun
@@ -232,7 +232,7 @@ if __name__ == '__main__':
                     group_dir = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), "HVs", "run_{}".format( group_size ) )
                     if not os.path.exists( group_dir ):
                         os.makedirs( group_dir )
-                    combinations = fun.count_combinations( len(best_features), group_size )
+                    combinations = math.comb( len(best_features), group_size )
                     combinations_counter = 1
                     # Define a set of N features with N equals to "group_size"
                     for comb_features in itertools.combinations( best_features, group_size ):

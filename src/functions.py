@@ -521,21 +521,6 @@ def printlog( message, data=[], end_msg=None, verbose=False, out=None ):
         if out != None:
             out.write( '{}\n'.format( end_msg ) )
 
-def factorial( num ):
-    # check if the number is negative, positive or zero
-    if num < 0:
-        return None
-    elif num == 0:
-        return 1
-    else:
-        factorial = 1
-        for i in range(1,num + 1):
-            factorial = factorial*i
-        return factorial
-
-def count_combinations( n_set, n_subset ):
-    return int( factorial( n_set ) / ( factorial( n_subset ) * factorial( n_set - n_subset ) ) )
-
 def cleanup( group_dir, dimensionality, levels, features_hash, spark=False ):
     suffix = 'bufferHVs_{}_{}_{}'.format( str(dimensionality), str(levels), str(features_hash) )
     for prefix in [ 'levels', 'train', 'test' ]:
