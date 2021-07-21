@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-__authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)' )
+__authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
+                'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Mar 27, 2020'
+__date__ = 'Jul 21, 2021'
 
 import sys, os, time, pickle, itertools, hashlib, math
 import argparse as ap
