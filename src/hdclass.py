@@ -216,13 +216,14 @@ if __name__ == '__main__':
         # Create the summary file
         if args.dump:
             summary_filepath = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), 'summary.txt' )
-            summary_exists = os.path.exists( summary_filepath )
-            if not summary_exists:
+            if not os.path.exists( summary_filepath ):
                 with open( summary_filepath, 'a+' ) as summary:
                     fun.printlog( 
                         '# Run ID\tGroup Size\tDimensionality\tLevels\tRetraining\tBest Accuracy',
                         out=summary
                     )
+        # Keep track of the feature selection result
+        selected_features = [ ]
         # For each group size
         prev_group_size = np.Inf
         for group_size in reversed( range( min_group, max_group + 1 ) ):
@@ -367,15 +368,20 @@ if __name__ == '__main__':
                         combinations_counter += 1
                     # Keep track of the best results and close the summary
                     if args.dump:
-                        with open( summary_filepath, 'a+' ) as summary:
-                            for run in mapping[ group_size ]:
-                                fun.printlog( 
-                                    '{}\t{}\t{}\t{}\t{}\t{}'.format( run[ "run" ], group_size, 
-                                                                    args.dimensionality, args.levels, args.retrain, 
-                                                                    run[ "accuracy" ] ),
-                                    out=summary
-                                )
-        last_group = min(list(mapping.keys()))
-        selected_features = [ run["features"] for run in mapping[last_group] ]
-        selected_features = list(set(list(itertools.chain(*selected_features))))
-        fun.printlog( 'Best features:', data=selected_features, verbose=args.verbose )
+                        if mapping[ group_size ][ 0 ][ "accuracy" ] >= args.accuracy_threshold:
+                            with open( summary_filepath, 'a+' ) as summary:
+                                for run in mapping[ group_size ]:
+                                    selected_features.append(run["features"])
+                                    fun.printlog( 
+                                        '{}\t{}\t{}\t{}\t{}\t{}'.format( run[ "run" ], group_size, 
+                                                                         args.dimensionality, args.levels, args.retrain, 
+                                                                         run[ "accuracy" ] ),
+                                        out=summary
+                                    )
+                                selected_features = list(set(list(itertools.chain(*selected_features))))
+        
+        fs_filepath = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), 'selection.txt' )
+        with open( fs_filepath, 'w+' ) as fs:
+            for feature in selected_features:
+                fun.printlog( feature, out=fs )
+        fun.printlog( 'Selected features: {}'.format(fs_filepath), verbose=args.verbose )
