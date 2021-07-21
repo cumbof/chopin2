@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+
+__authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
+                'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
+__version__ = '0.01'
+__date__ = 'Jul 21, 2021'
+
 import os, random, copy, pickle, shutil, warnings
 import numpy as np
 import multiprocessing as mp
