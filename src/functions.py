@@ -5,7 +5,7 @@ __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
 __version__ = '0.01'
 __date__ = 'Jul 21, 2021'
 
-import os, random, copy, pickle, shutil, warnings
+import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
 import multiprocessing as mp
 from functools import partial
@@ -548,3 +548,9 @@ def cleanup( group_dir, dimensionality, levels, features_hash, spark=False ):
                 os.unlink( datapath )
             else:
                 shutil.rmtree( datapath, ignore_errors=True )
+
+def combinations(n, k):
+    n_fac = math.factorial(n)
+    k_fac = math.factorial(k)
+    n_minus_k_fac = math.factorial(n - k)
+    return n_fac/(k_fac*n_minus_k_fac)
