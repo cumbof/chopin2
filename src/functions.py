@@ -424,7 +424,6 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
                           spark=spark, slices=slices, master=master, memory=memory,
                           dataset=dataset, verbose=verbose, log=log) )
     prev_error = np.Inf
-    count_retrain = 0
     for i in range(retrain):
         printlog( "Retraining iteration: {}".format(i+1), verbose=verbose, out=log )
         currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels, 
@@ -435,8 +434,7 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
         if error == prev_error and stop:
             break
         prev_error = error
-        count_retrain += 1
-    return accuracy, count_retrain
+    return accuracy
 
 #Creates an HD model object, encodes the training and testing data, and
 #performs the initial training of the HD model
