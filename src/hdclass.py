@@ -248,7 +248,9 @@ if __name__ == '__main__':
                     group_dir = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), "HVs", "run_{}".format( group_size ) )
                     if not os.path.exists( group_dir ):
                         os.makedirs( group_dir )
-                    combinations = math.comb( len(best_features), group_size )
+                    # math.comb() has been introduced with python 3.8
+                    #combinations = math.comb( len(best_features), group_size )
+                    combinations = fun.comb( len(best_features), group_size )
                     combinations_counter = 1
                     # Define a set of N features with N equals to "group_size"
                     for comb_features in itertools.combinations( best_features, group_size ):
