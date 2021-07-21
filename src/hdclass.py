@@ -67,6 +67,24 @@ def read_params():
                     action = 'store_true',
                     default = False,
                     help = "Delete the classification model as soon as it produces the prediction accuracy" )
+    p.add_argument( '--accuracy_threshold', 
+                    type = float,
+                    default = 60.0,
+                    help = "Stop the execution if the best accuracy achieved during the previous group of runs is lower than this number" )
+    p.add_argument( '--accuracy_uncertainty_perc', 
+                    type = float,
+                    default = 5.0,
+                    help = ( "Take a run into account even if its accuracy is lower than the best accuracy achieved in the same group minus "
+                             "its \"accuracy_uncertainty_perc\" percent" ) )
+    p.add_argument( '--verbose',
+                    action = 'store_true',
+                    default = False,
+                    help = "Print results in real time" )
+    p.add_argument( '-v', 
+                    '--version', 
+                    action = 'version',
+                    version = 'hdclass.py version {} ({})'.format( __version__, __date__ ),
+                    help = "Print the current hdclass.py version and exit" )
     # Apache Spark
     p.add_argument( '--spark',
                     action = 'store_true',
@@ -100,15 +118,6 @@ def read_params():
                     default = 1,
                     help = ( "Number of parallel jobs for the creation of the HD model. "
                              "This argument is ignored if --spark is enabled" ) )
-    p.add_argument( '--verbose',
-                    action = 'store_true',
-                    default = False,
-                    help = "Print results in real time" )
-    p.add_argument( '-v', 
-                    '--version', 
-                    action = 'version',
-                    version = 'hdclass.py version {} ({})'.format( __version__, __date__ ),
-                    help = "Print the current hdclass.py version and exit" )
     return p.parse_args()
 
 if __name__ == '__main__':
@@ -222,9 +231,15 @@ if __name__ == '__main__':
                 # Otherwise, use the whole set of features
                 best_features = use_features
                 if group_size +1 in mapping:
+                    best_accuracy = 0.0
                     best_features = [ ]
                     for run in mapping[ group_size +1 ]:
                         best_features = list( set(best_features).intersection(set(run[ "features" ])) ) if best_features else run[ "features" ]
+                        if run["accuracy"] > best_accuracy:
+                            best_accuracy = run["accuracy"]
+                    if best_accuracy < args.accuracy_threshold:
+                        # Stop the execution if the best accuracy achieved during the last group of runs is lower than "accuracy_threshold"
+                        break
                     group_size = len( best_features ) -1
                     prev_group_size = group_size
                 if group_size > 0:
@@ -323,16 +338,12 @@ if __name__ == '__main__':
                         )
                         # Keep track of the best accuracy for the current group size
                         if group_size in mapping:
-                            if mapping[ group_size ][ 0 ][ "accuracy" ] < best:
-                                mapping[ group_size ] = [
-                                    {
-                                        "accuracy": best,
-                                        "run": features_hash,
-                                        "features": comb_features
-                                    }
-                                ]
-                            elif mapping[ group_size ][ 0 ][ "accuracy" ] == best:
-                                mapping[ group_size ].append(
+                            if best >= mapping[ group_size ][ 0 ][ "accuracy" ]:
+                                threshold = best-(best*args.accuracy_uncertainty_perc)/100.0                                
+                                mapping[ group_size ] = sorted( [ run for run in mapping[ group_size ] if run["accuracy"] >= threshold ], 
+                                                                key=lambda run: run["accuracy"], 
+                                                                reverse=True )
+                                mapping[ group_size ].insert( 0,
                                     {
                                         "accuracy": best,
                                         "run": features_hash,
