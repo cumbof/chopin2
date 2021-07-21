@@ -1,7 +1,7 @@
 # Hyperdimensional Computing Classifier
 #### Originally forked from [https://github.com/moimani/HD-Permutaion](https://github.com/moimani/HD-Permutaion)
 
-This repository includes some Python 3 utilities to build a Hyperdimensional Computing classification model according to the architecture
+This repository includes some Python 3.8 utilities to build a Hyperdimensional Computing classification model according to the architecture
 originally introduced in [https://doi.org/10.1109/DAC.2018.8465708](https://doi.org/10.1109/DAC.2018.8465708)
 
 The `src/generators` folder contains two Python3 scripts able to create training a test datasets with randomly selected samples from:
