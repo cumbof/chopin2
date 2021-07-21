@@ -8,14 +8,14 @@ warnings.filterwarnings("ignore")
 try:
     from pyspark import SparkConf, SparkContext
 except:
-    print( "PySpark not found" )
+    print("WARNING: PySpark not found")
     pass
 
 # Try to load Numba
 try:
     from numba import cuda
 except:
-    print( "Numba not found" )
+    print("WARNING: Numba not found")
     pass
 
 class HDModel(object):
@@ -505,16 +505,21 @@ def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, ou
         for observation in range( len( data ) ):
             flatfile.write( '{}\n'.format( sep.join( [ str(value) for value in data[ observation ] ] ) ) )
 
-def printlog( message, data=[], end_msg=None, verbose=False, out=None ):
+def printlog( message, data=[], print_threshold=100, end_msg=None, verbose=False, out=None ):
     if verbose:
         print( message )
     if out != None:
         out.write( '{}\n'.format( message ) )
-    for line in data:
-        if verbose:
-            print( '\t{}'.format( line ) )
-        if out != None:
-            out.write( '\t{}\n'.format( line ) )
+    if data:
+        exceeded = False
+        if len(data) > print_threshold:
+            print('\tWARNING: Exceeding maximum number of lines for printing ({}). Omitting {} lines.'.format(print_threshold, len(data)))
+            exceeded = True
+        for line in data:
+            if verbose and not exceeded:
+                print( '\t{}'.format( line ) )
+            if out != None:
+                out.write( '\t{}\n'.format( line ) )
     if end_msg != None:
         if verbose:
             print( end_msg )
