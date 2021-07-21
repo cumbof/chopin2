@@ -310,7 +310,7 @@ if __name__ == '__main__':
                                                 )
                         t1model = time.time()
                         fun.printlog( 
-                            'Total elapsed time (model) {}s\nTest the HD model by retraining it {} times'.format( int( t1model - t0model ), args.retrain ),
+                            'Total elapsed time (model) {}s\nTest the HD model by retraining it {} times at most'.format( int( t1model - t0model ), args.retrain ),
                             verbose=args.verbose,
                             out=run
                         )
@@ -325,16 +325,14 @@ if __name__ == '__main__':
                                                     slices=args.slices,
                                                     master=args.master,
                                                     memory=args.memory,
-                                                    dataset=os.path.splitext(
-                                                                os.path.basename( picklepath )
-                                                            )[0],
+                                                    dataset=os.path.splitext( os.path.basename( picklepath ) )[0],
                                                     verbose=args.verbose,
                                                     log=run
-                                                )
+                                                  )
                         t1acc = time.time()
                         best = max( accuracy )
                         fun.printlog( 
-                            'Total elapsed time (accuracy) {}s\nThe maximum accuracy is: {}\n'.format( int( t1acc - t0acc ), best ),
+                            'Total elapsed time (accuracy) {}s\nThe maximum accuracy is {} after {} retraining\n'.format( int( t1acc - t0acc ), best, len(accuracy) ),
                             verbose=args.verbose,
                             out=run
                         )
