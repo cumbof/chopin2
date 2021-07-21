@@ -184,18 +184,22 @@ class HDModel(object):
             # Stop Spark context
             context.stop()
 
-@cuda.jit
-def gpu_add(A, B):
-    pos = cuda.grid(1)
-    if pos < A.size:
-        A[pos] += B[pos]
+# Define the following methods if Numba is available
+try:
+    @cuda.jit
+    def gpu_add(A, B):
+        pos = cuda.grid(1)
+        if pos < A.size:
+            A[pos] += B[pos]
 
-@cuda.jit
-def gpu_base(A, B):
-    pos = cuda.grid(1)
-    if pos < A.size:
-        posB = A[pos]
-        B[posB] = B[posB] * -1
+    @cuda.jit
+    def gpu_base(A, B):
+        pos = cuda.grid(1)
+        if pos < A.size:
+            posB = A[pos]
+            B[posB] = B[posB] * -1
+except:
+    pass
 
 #Performs the initial training of the HD model by adding up all the training
 #hypervectors that belong to each class to create each class hypervector
