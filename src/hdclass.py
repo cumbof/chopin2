@@ -370,6 +370,7 @@ if __name__ == '__main__':
                     if args.dump:
                         if mapping[ group_size ][ 0 ][ "accuracy" ] >= args.accuracy_threshold:
                             with open( summary_filepath, 'a+' ) as summary:
+                                selected_features = [ ]
                                 for run in mapping[ group_size ]:
                                     selected_features.append(run["features"])
                                     fun.printlog( 
