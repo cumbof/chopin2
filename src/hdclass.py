@@ -269,9 +269,8 @@ if __name__ == '__main__':
                             run = open( run_filepath, 'w+' )
                         # Print current run info and features
                         fun.printlog( 
-                            'Combination {}/{}\nRun ID: {}\nGroup size: {}\nFeatures:'.format( combinations_counter, combinations,
-                                                                                            '{}_{}'.format( features_hash, copy_id ), 
-                                                                                            group_size ),
+                            'Run ID: {}\nCombination {}/{}\nGroup size: {}\nFeatures:'.format( '{}_{}'.format( features_hash, copy_id )
+                                                                                               int(combinations_counter), int(combinations), group_size ),
                             data=comb_features,
                             end_msg='Reshape training and test datasets',
                             verbose=args.verbose,
