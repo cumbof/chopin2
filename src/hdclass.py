@@ -333,7 +333,7 @@ if __name__ == '__main__':
                         t1acc = time.time()
                         best = max( accuracy )
                         fun.printlog( 
-                            'Total elapsed time (accuracy) {}s\nThe maximum accuracy is {} after {} retraining\n'.format( int( t1acc - t0acc ), best, len(accuracy) ),
+                            'Total elapsed time (accuracy) {}s\nThe maximum accuracy is {} after {} retrainings\n'.format( int( t1acc - t0acc ), best, len(accuracy)-1 ),
                             verbose=args.verbose,
                             out=run
                         )
