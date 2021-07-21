@@ -250,7 +250,7 @@ if __name__ == '__main__':
                         os.makedirs( group_dir )
                     # math.comb() has been introduced with python 3.8
                     #combinations = math.comb( len(best_features), group_size )
-                    combinations = fun.comb( len(best_features), group_size )
+                    combinations = fun.combinations( len(best_features), group_size )
                     combinations_counter = 1
                     # Define a set of N features with N equals to "group_size"
                     for comb_features in itertools.combinations( best_features, group_size ):
