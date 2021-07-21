@@ -74,8 +74,8 @@ def read_params():
                     help = "Build the classification model in a Apache Spark distributed environment" )
     p.add_argument( '--slices', 
                     type = int,
-                    help = ( "Number of threads per block in case --gpu argument is enabled. "
-                             "This argument is ignored if --spark is enabled" ) )
+                    help = ( "Number of slices in case --spark argument is enabled. "
+                             "This argument is ignored if --gpu is enabled" ) )
     p.add_argument( '--master', 
                     type = str,
                     help = "Master node address" )
