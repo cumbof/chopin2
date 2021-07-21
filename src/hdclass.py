@@ -375,3 +375,7 @@ if __name__ == '__main__':
                                                                     run[ "accuracy" ] ),
                                     out=summary
                                 )
+        last_group = min(list(mapping.keys()))
+        selected_features = [ run["features"] for run in mapping[last_group] ]
+        selected_features = list(set(list(itertools.chain(*selected_features))))
+        fun.printlog( 'Best features:', data=selected_features, verbose=args.verbose )
