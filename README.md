@@ -55,8 +55,8 @@ List of arguments to enable backward variable selection:
 List of argument for the execution of the classifier on a Spark distributed environment:
 ```
 --spark             - Build the classification model in a Apache Spark distributed environment
---slices            - Number of threads per block in case --gpu argument is enabled. 
-                      This argument is ignored if --spark is enabled
+--slices            - Number of slices in case --spark argument is enabled. 
+                      This argument is ignored if --gpu is enabled
 --master            - Master node address
 --memory            - Executor memory
 ```
