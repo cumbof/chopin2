@@ -135,10 +135,8 @@ if __name__ == '__main__':
             verbose=args.verbose
         )
         # If the pickle file already exists
-        picklepath = args.pickle
         # Load trainData, trainLabels, testData, testLabels
-        with open( picklepath, 'rb' ) as picklefile:
-            dataset = pickle.load( picklefile )
+        dataset = pickle.load( open( args.pickle, 'rb' ) )
         if len( dataset ) > 4:
             # Define features, trainData, trainLabels, testData, and testLabels
             features, trainData, trainLabels, testData, testLabels = dataset
@@ -170,8 +168,7 @@ if __name__ == '__main__':
             'Dumping dataset to pickle file\n\t{}'.format( picklepath ),
             verbose=args.verbose
         )
-        with open( picklepath, 'wb' ) as picklefile:
-            pickle.dump( pickledata, picklefile )
+        pickle.dump( pickledata, open( picklepath, 'wb' ) )
     
     # features:     List of features
     # trainData:    Matrix in which each row is a datapoint of the training set and each column is a feature
