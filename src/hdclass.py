@@ -135,8 +135,9 @@ if __name__ == '__main__':
             verbose=args.verbose
         )
         # If the pickle file already exists
+        picklepath = args.pickle
         # Load trainData, trainLabels, testData, testLabels
-        dataset = pickle.load( open( args.pickle, 'rb' ) )
+        dataset = pickle.load( open( picklepath, 'rb' ) )
         if len( dataset ) > 4:
             # Define features, trainData, trainLabels, testData, and testLabels
             features, trainData, trainLabels, testData, testLabels = dataset
