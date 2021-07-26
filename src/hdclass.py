@@ -290,21 +290,19 @@ if __name__ == '__main__':
                         )
                         t0model = time.time()
                         model = fun.buildHDModel( trainData_subset, trainLabels, testData_subset, testLabels, 
-                                                args.dimensionality, args.levels, 
-                                                os.path.splitext(
-                                                    os.path.basename( picklepath )
-                                                )[0],
-                                                features_hash,
-                                                workdir=group_dir,
-                                                spark=args.spark,
-                                                slices=args.slices,
-                                                master=args.master,
-                                                memory=args.memory,
-                                                gpu=args.gpu,
-                                                tblock=args.tblock,
-                                                nproc=args.nproc,
-                                                verbose=args.verbose,
-                                                log=run
+                                                  args.dimensionality, args.levels, 
+                                                  os.path.splitext( os.path.basename( picklepath ) )[0],
+                                                  features_hash,
+                                                  workdir=group_dir,
+                                                  spark=args.spark,
+                                                  slices=args.slices,
+                                                  master=args.master,
+                                                  memory=args.memory,
+                                                  gpu=args.gpu,
+                                                  tblock=args.tblock,
+                                                  nproc=args.nproc,
+                                                  verbose=args.verbose,
+                                                  log=run
                                                 )
                         t1model = time.time()
                         fun.printlog( 
