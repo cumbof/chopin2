@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.8
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
 __date__ = 'Apr 8, 2022'
 
-import sys, os, time, pickle, itertools, hashlib
+import sys, os, time, pickle, itertools, hashlib, math
 import argparse as ap
 import numpy as np
 import functions as fun
@@ -177,6 +177,7 @@ if __name__ == '__main__':
     # testData:     Matrix in which each row is a datapoint of the testing set and each column is a feature
     # testLabels:   List in which each index contains the label for the data in the same row index of the testData matrix
     if features and trainData and trainLabels and testData and testLabels:
+        selected_features = list()
         # Define the set of features that must be considered for building the HD model
         use_features = list()
         if args.features:
@@ -249,7 +250,7 @@ if __name__ == '__main__':
                     group_dir = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), "HVs", "run_{}".format( group_size ) )
                     if not os.path.exists( group_dir ):
                         os.makedirs( group_dir )
-                    combinations = fun.combinations( len(best_features), group_size )
+                    combinations = math.comb( len(best_features), group_size )
                     combinations_counter = 1
                     # Define a set of N features with N equals to "group_size"
                     for comb_features in itertools.combinations( best_features, group_size ):
@@ -271,7 +272,6 @@ if __name__ == '__main__':
                             'Run ID: {}\nCombination {}/{}\nGroup size: {}\nFeatures:'.format( '{}_{}'.format( features_hash, copy_id ),
                                                                                                int(combinations_counter), int(combinations), group_size ),
                             data=comb_features,
-                            end_msg='Reshape training and test datasets',
                             verbose=args.verbose,
                             out=run
                         )
@@ -285,13 +285,17 @@ if __name__ == '__main__':
                             testData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in testData ]
                         # Encodes the training data, testing data, and performs the initial training of the HD model
                         fun.printlog( 
-                            'Build the HD model\n\t--dimensionality {}\n\t--levels {}'.format( args.dimensionality, args.levels ),
+                            'Building the HD model\n\t--dimensionality {}\n\t--levels {}'.format( args.dimensionality, args.levels ),
                             verbose=args.verbose,
                             out=run
                         )
                         t0model = time.time()
-                        model = fun.buildHDModel( trainData_subset, trainLabels, testData_subset, testLabels, 
-                                                  args.dimensionality, args.levels, 
+                        model = fun.buildHDModel( trainData_subset, 
+                                                  trainLabels, 
+                                                  testData_subset, 
+                                                  testLabels, 
+                                                  args.dimensionality, 
+                                                  args.levels, 
                                                   os.path.splitext( os.path.basename( picklepath ) )[0],
                                                   features_hash,
                                                   workdir=group_dir,
@@ -307,15 +311,17 @@ if __name__ == '__main__':
                                                 )
                         t1model = time.time()
                         fun.printlog( 
-                            'Total elapsed time (model) {}s\nTest the HD model by retraining it {} times at most'.format( int( t1model - t0model ), args.retrain ),
+                            'Total elapsed time (model) {}s\nRetraining the HD model {} times at most'.format( int( t1model - t0model ), args.retrain ),
                             verbose=args.verbose,
                             out=run
                         )
                         # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
                         t0acc = time.time()
                         accuracy, retraining = fun.trainNTimes( model.classHVs, 
-                                                                model.trainHVs, model.trainLabels, 
-                                                                model.testHVs, model.testLabels, 
+                                                                model.trainHVs, 
+                                                                model.trainLabels, 
+                                                                model.testHVs, 
+                                                                model.testLabels, 
                                                                 args.retrain,
                                                                 stop=args.stop,
                                                                 spark=args.spark,
@@ -329,9 +335,8 @@ if __name__ == '__main__':
                         t1acc = time.time()
                         best = max( accuracy )
                         message = 'Total elapsed time (accuracy) {}s\n'.format( int( t1acc - t0acc ) )
-                        message += 'The maximum accuracy is {} after {} retrainings\n'.format( best, 
-                                                                                               retraining[accuracy.index(best)] )
-                        message += 'Stopped after {} retraining iterations'.format( len(accuracy)-1 )
+                        message += 'The maximum reached accuracy is {} after {} retrainings\n'.format( best, retraining[accuracy.index(best)] )
+                        message += 'Stopped after {} retraining iterations\n'.format( len(accuracy)-1 )
                         fun.printlog( message, verbose=args.verbose, out=run )
                         # Keep track of the best accuracy for the current group size
                         if group_size in mapping:
@@ -377,7 +382,6 @@ if __name__ == '__main__':
                     if args.dump:
                         if mapping[ group_size ][ 0 ][ "accuracy" ] >= args.accuracy_threshold:
                             with open( summary_filepath, 'a+' ) as summary:
-                                selected_features = list()
                                 for run in mapping[ group_size ]:
                                     selected_features.append(run["features"])
                                     fun.printlog( 
