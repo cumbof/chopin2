@@ -3,9 +3,9 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Jul 21, 2021'
+__date__ = 'Apr 8, 2022'
 
-import sys, os, time, pickle, itertools, hashlib, math
+import sys, os, time, pickle, itertools, hashlib
 import argparse as ap
 import numpy as np
 import functions as fun
@@ -77,15 +77,6 @@ def read_params():
                     default = 5.0,
                     help = ( "Take a run into account even if its accuracy is lower than the best accuracy achieved in the same group minus "
                              "its \"accuracy_uncertainty_perc\" percent" ) )
-    p.add_argument( '--verbose',
-                    action = 'store_true',
-                    default = False,
-                    help = "Print results in real time" )
-    p.add_argument( '-v', 
-                    '--version', 
-                    action = 'version',
-                    version = 'hdclass.py version {} ({})'.format( __version__, __date__ ),
-                    help = "Print the current hdclass.py version and exit" )
     # Apache Spark
     p.add_argument( '--spark',
                     action = 'store_true',
@@ -119,6 +110,15 @@ def read_params():
                     default = 1,
                     help = ( "Number of parallel jobs for the creation of the HD model. "
                              "This argument is ignored if --spark is enabled" ) )
+    p.add_argument( '--verbose',
+                    action = 'store_true',
+                    default = False,
+                    help = "Print results in real time" )
+    p.add_argument( '-v', 
+                    '--version', 
+                    action = 'version',
+                    version = 'hdclass.py version {} ({})'.format( __version__, __date__ ),
+                    help = "Print the current hdclass.py version and exit" )
     return p.parse_args()
 
 if __name__ == '__main__':
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     # testLabels:   List in which each index contains the label for the data in the same row index of the testData matrix
     if features and trainData and trainLabels and testData and testLabels:
         # Define the set of features that must be considered for building the HD model
-        use_features = [ ]
+        use_features = list()
         if args.features:
             with open( args.features ) as features_list:
                 for line in features_list:
@@ -210,18 +210,20 @@ if __name__ == '__main__':
             min_group = len( use_features )
             max_group = len( use_features )
         # Keep track of the best <group_size, accuracy>
-        mapping = { }
+        mapping = dict()
         # Create the summary file
         if args.dump:
             summary_filepath = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), 'summary.txt' )
             if not os.path.exists( summary_filepath ):
                 with open( summary_filepath, 'a+' ) as summary:
-                    fun.printlog( 
-                        '# Run ID\tGroup Size\tDimensionality\tLevels\tRetraining\tBest Accuracy',
-                        out=summary
-                    )
-        # Keep track of the feature selection result
-        selected_features = [ ]
+                    header = '# Dataset: {}\n'.format( picklepath )
+                    header += '# Dimensionality: {}\n'.format( args.dimensionality )
+                    header += '# Number of levels: {}\n'.format( args.levels )
+                    header += '# Max retraining iterations: {}\n'.format( args.levels )
+                    header += '# Accuracy threshold (stop condition): {}\n'.format( args.accuracy_threshold )
+                    header += '# Accuracy uncertainty (percentage): {}\n'.format( args.accuracy_uncertainty_perc )
+                    header += '# Run ID\tGroup Size\tRetraining\tAccuracy'
+                    fun.printlog( header, out=summary )
         # For each group size
         prev_group_size = np.Inf
         for group_size in reversed( range( min_group, max_group + 1 ) ):
@@ -232,7 +234,7 @@ if __name__ == '__main__':
                 best_features = use_features
                 if group_size +1 in mapping:
                     best_accuracy = 0.0
-                    best_features = [ ]
+                    best_features = list()
                     for run in mapping[ group_size +1 ]:
                         best_features = list( set(best_features).intersection(set(run[ "features" ])) ) if best_features else run[ "features" ]
                         if run["accuracy"] > best_accuracy:
@@ -247,8 +249,6 @@ if __name__ == '__main__':
                     group_dir = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), "HVs", "run_{}".format( group_size ) )
                     if not os.path.exists( group_dir ):
                         os.makedirs( group_dir )
-                    # math.comb() has been introduced with python 3.8
-                    #combinations = math.comb( len(best_features), group_size )
                     combinations = fun.combinations( len(best_features), group_size )
                     combinations_counter = 1
                     # Define a set of N features with N equals to "group_size"
@@ -313,26 +313,26 @@ if __name__ == '__main__':
                         )
                         # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
                         t0acc = time.time()
-                        accuracy = fun.trainNTimes( model.classHVs, 
-                                                    model.trainHVs, model.trainLabels, 
-                                                    model.testHVs, model.testLabels, 
-                                                    args.retrain,
-                                                    stop=args.stop,
-                                                    spark=args.spark,
-                                                    slices=args.slices,
-                                                    master=args.master,
-                                                    memory=args.memory,
-                                                    dataset=os.path.splitext( os.path.basename( picklepath ) )[0],
-                                                    verbose=args.verbose,
-                                                    log=run
-                                                  )
+                        accuracy, retraining = fun.trainNTimes( model.classHVs, 
+                                                                model.trainHVs, model.trainLabels, 
+                                                                model.testHVs, model.testLabels, 
+                                                                args.retrain,
+                                                                stop=args.stop,
+                                                                spark=args.spark,
+                                                                slices=args.slices,
+                                                                master=args.master,
+                                                                memory=args.memory,
+                                                                dataset=os.path.splitext( os.path.basename( picklepath ) )[0],
+                                                                verbose=args.verbose,
+                                                                log=run
+                                                              )
                         t1acc = time.time()
                         best = max( accuracy )
-                        fun.printlog( 
-                            'Total elapsed time (accuracy) {}s\nThe maximum accuracy is {} after {} retrainings\n'.format( int( t1acc - t0acc ), best, len(accuracy)-1 ),
-                            verbose=args.verbose,
-                            out=run
-                        )
+                        message = 'Total elapsed time (accuracy) {}s\n'.format( int( t1acc - t0acc ) )
+                        message += 'The maximum accuracy is {} after {} retrainings\n'.format( best, 
+                                                                                               retraining[accuracy.index(best)] )
+                        message += 'Stopped after {} retraining iterations'.format( len(accuracy)-1 )
+                        fun.printlog( message, verbose=args.verbose, out=run )
                         # Keep track of the best accuracy for the current group size
                         if group_size in mapping:
                             if best >= mapping[ group_size ][ 0 ][ "accuracy" ]:
@@ -343,6 +343,16 @@ if __name__ == '__main__':
                                 mapping[ group_size ].insert( 0,
                                     {
                                         "accuracy": best,
+                                        "retraining": retraining[accuracy.index(best)],
+                                        "run": features_hash,
+                                        "features": comb_features
+                                    }
+                                )
+                            elif mapping[ group_size ][ 0 ][ "accuracy" ] == best:
+                                mapping[ group_size ].append(
+                                    {
+                                        "accuracy": best,
+                                        "retraining": retraining[accuracy.index(best)],
                                         "run": features_hash,
                                         "features": comb_features
                                     }
@@ -351,6 +361,7 @@ if __name__ == '__main__':
                             mapping[ group_size ] = [
                                 {
                                     "accuracy": best,
+                                    "retraining": retraining[accuracy.index(best)],
                                     "run": features_hash,
                                     "features": comb_features
                                 }
@@ -366,13 +377,11 @@ if __name__ == '__main__':
                     if args.dump:
                         if mapping[ group_size ][ 0 ][ "accuracy" ] >= args.accuracy_threshold:
                             with open( summary_filepath, 'a+' ) as summary:
-                                selected_features = [ ]
+                                selected_features = list()
                                 for run in mapping[ group_size ]:
                                     selected_features.append(run["features"])
                                     fun.printlog( 
-                                        '{}\t{}\t{}\t{}\t{}\t{}'.format( run[ "run" ], group_size, 
-                                                                         args.dimensionality, args.levels, args.retrain, 
-                                                                         run[ "accuracy" ] ),
+                                        '{}\t{}\t{}\t{}'.format( run[ "run" ], group_size, run[ "retraining" ], run[ "accuracy" ] ),
                                         out=summary
                                     )
                                 selected_features = list(set(list(itertools.chain(*selected_features))))

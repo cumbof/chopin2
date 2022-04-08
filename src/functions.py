@@ -3,7 +3,7 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Jul 21, 2021'
+__date__ = 'Apr 8, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
@@ -418,11 +418,13 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, m
 #   accuracy: array containing the accuracies after each retraining iteration
 def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, stop=False,
                 spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
-    accuracy = []
+    accuracy = list()
+    retraining = list()
     currClassHV = copy.deepcopy(classHVs)
     accuracy.append( test(currClassHV, testHVs, testLabels, 
                           spark=spark, slices=slices, master=master, memory=memory,
                           dataset=dataset, verbose=verbose, log=log) )
+    retraining.append(0)
     prev_error = np.Inf
     for i in range(retrain):
         printlog( "Retraining iteration: {}".format(i+1), verbose=verbose, out=log )
@@ -431,10 +433,11 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
         accuracy.append( test(currClassHV, testHVs, testLabels, 
                               spark=spark, slices=slices, master=master, memory=memory, 
                               dataset=dataset, verbose=verbose, log=log) )
+        retraining.append(i+1)
         if error == prev_error and stop:
             break
         prev_error = error
-    return accuracy
+    return accuracy, retraining
 
 #Creates an HD model object, encodes the training and testing data, and
 #performs the initial training of the HD model
