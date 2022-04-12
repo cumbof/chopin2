@@ -3,7 +3,7 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Apr 8, 2022'
+__date__ = 'Apr 12, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
@@ -42,9 +42,9 @@ class HDModel(object):
     #   nproc: number of parallel jobs 
     #Outputs:
     #   HDModel object
-    def __init__(self, datasetName, hashId, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, 
+    def __init__(self, datasetName, hashId, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, levelsdir,
                  spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1, 
-                 verbose=False, log=None):
+                 verbose=False, log=None, seed=0):
         if len(trainData) != len(trainLabels):
             printlog( "Training data and training labels do not have the same size", verbose=verbose, out=log )
             return
@@ -54,6 +54,7 @@ class HDModel(object):
         self.datasetName = datasetName
         self.hashId = hashId
         self.workdir = workdir
+        self.levelsdir = levelsdir
         self.trainData = trainData
         self.trainLabels = trainLabels
         self.testData = testData
@@ -61,18 +62,18 @@ class HDModel(object):
         self.D = D
         self.totalLevel = totalLevel
         self.levelList = getlevelList(self.trainData, self.totalLevel)
-        levels_bufferHVs = os.path.join( self.workdir, 'levels_bufferHVs_{}_{}_{}.pkl'.format( str(self.D), str(self.totalLevel), str(self.hashId) ) )
+        levels_bufferHVs = os.path.join( self.levelsdir, 'levels_bufferHVs_{}_{}.pkl'.format( str(self.D), str(self.totalLevel) ) )
         if os.path.exists( levels_bufferHVs ):
             printlog( "Loading HV levels\n\t{}".format( levels_bufferHVs ), verbose=verbose, out=log )
             self.levelHVs = pickle.load( open( levels_bufferHVs, 'rb' ) )
         else:
             printlog( "Generating HV levels\n\t{}".format( levels_bufferHVs ), verbose=verbose, out=log )
-            self.levelHVs = genLevelHVs(self.totalLevel, self.D, gpu=gpu, tblock=tblock, verbose=verbose, log=log)
+            self.levelHVs = genLevelHVs(self.totalLevel, self.D, gpu=gpu, tblock=tblock, verbose=verbose, log=log, seed=seed)
             with open( levels_bufferHVs, 'wb' ) as f:
                 pickle.dump(self.levelHVs, f)
-        self.trainHVs = []
-        self.testHVs = []
-        self.classHVs = []
+        self.trainHVs = list()
+        self.testHVs = list()
+        self.classHVs = list()
         # Spark params
         self.spark = spark
         self.slices = slices
@@ -118,7 +119,7 @@ class HDModel(object):
                     trainHVs.saveAsPickleFile( train_bufferHVs )
                 else:
                     # Multiprocessing
-                    trainHVs = { }
+                    trainHVs = dict()
                     with mp.Pool( processes=self.nproc ) as pool:
                         EncodeToHVPartial = partial( EncodeToHV_wrapper, 
                                                      D=self.D, 
@@ -168,7 +169,7 @@ class HDModel(object):
                     self.testLabels = testHVs.map( lambda obs: obs[ 0 ] ).collect()
                 else:
                     # Multiprocessing
-                    testHVs = { }
+                    testHVs = dict()
                     with mp.Pool( processes=self.nproc ) as pool:
                         EncodeToHVPartial = partial( EncodeToHV_wrapper, 
                                                      D=self.D, 
@@ -273,7 +274,7 @@ def numToKey(value, levelList):
 def getlevelList(buffers, totalLevel):
     minimum = buffers[0][0]
     maximum = buffers[0][0]
-    levelList = []
+    levelList = list()
     for buffer in buffers:
         localMin = min(buffer)
         localMax = max(buffer)
@@ -296,7 +297,7 @@ def getlevelList(buffers, totalLevel):
 #   tblock: threads per block
 #Outputs:
 #   levelHVs: level hypervector dictionary
-def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None):
+def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None, seed=0):
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
@@ -304,9 +305,9 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None):
     for level in range(totalLevel):
         if level == 0:
             base = np.full( D, -1 )
-            toOne = np.random.permutation(indexVector)[:change]
+            toOne = np.random.RandomState(seed=seed).permutation(indexVector)[:change]
         else:
-            toOne = np.random.permutation(indexVector)[:nextLevel]
+            toOne = np.random.RandomState(seed=seed).permutation(indexVector)[:nextLevel]
         if gpu and toOne.size != 0:
             blocksPerGrid = (toOne.size + (tblock - 1))
             gpu_base[blocksPerGrid, tblock](toOne, base)
@@ -316,7 +317,7 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None):
         levelHVs[level] = copy.deepcopy(base)
     return levelHVs
 
-def EncodeToHV_wrapper(inputBuffer, position, D=10000, levelHVs={}, levelList=[]):
+def EncodeToHV_wrapper(inputBuffer, position, D=10000, levelHVs=dict(), levelList=list()):
     return position, EncodeToHV(inputBuffer, D, levelHVs, levelList)
 
 #Encodes a single datapoint into a hypervector
@@ -344,7 +345,7 @@ def EncodeToHV(inputBuffer, D, levelHVs, levelList):
 def checkVector(classHVs, inputHV, labelHV):
     guess = list(classHVs.keys())[0]
     maximum = np.NINF
-    count = {}
+    count = dict()
     for key in classHVs.keys():
         count[key] = inner_product(classHVs[key], inputHV)
         if (count[key] > maximum):
@@ -455,14 +456,14 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
 #   nproc: number of parallel jobs
 #Outputs:
 #   model: HDModel object containing the encoded data, labels, and class HVs
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, hash_id, workdir='./', 
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, hash_id, workdir='./', levelsdir='./',
                  spark=False, slices=None, master=None, memory=None,
                  gpu=False, tblock=32, nproc=1, 
-                 verbose=False, log=None):
+                 verbose=False, log=None, seed=0):
     # Initialise HDModel
-    model = HDModel( datasetName, hash_id, trainData, trainLabels, testData, testLables, D, nLevels, workdir, 
+    model = HDModel( datasetName, hash_id, trainData, trainLabels, testData, testLables, D, nLevels, workdir, levelsdir,
                      spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc, 
-                     verbose=verbose, log=log )
+                     verbose=verbose, log=log, seed=seed )
     # Build train HD vectors
     model.buildBufferHVs("train", verbose=verbose, log=log)
     # Build test HD vectors
@@ -477,11 +478,11 @@ def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
     # Set a seed for the random sampling of the dataset
     random.seed( seed )
     # List of features
-    features = [ ]
+    features = list()
     # List of classes for each observation
-    classes = [ ]
+    classes = list()
     # Observations content
-    content = [ ]
+    content = list()
     with open( filepath ) as file:
         # Trim the first and last columns out (Observation ID and Class)
         features = [ f.strip() for f in file.readline().split( separator )[ 1: -1 ] ]
@@ -492,10 +493,10 @@ def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
                     line_split = line.split( separator )
                     content.append( [ float( value ) for value in line_split[ 1: -1 ] ] )
                     classes.append( line_split[ -1 ] )
-    trainData = [ ]
-    trainLabels = [ ]
-    testData = [ ]
-    testLabels = [ ]
+    trainData = list()
+    trainLabels = list()
+    testData = list()
+    testLabels = list()
     for classid in list( set( classes ) ):
         training_amount = int( ( float( classes.count( classid ) ) * float( training ) ) / 100.0 )
         # Create the training set by random sampling
@@ -519,7 +520,7 @@ def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, ou
         for observation in range( len( data ) ):
             flatfile.write( '{}\n'.format( sep.join( [ str(value) for value in data[ observation ] ] ) ) )
 
-def printlog( message, data=[], print_threshold=100, end_msg=None, verbose=False, out=None ):
+def printlog( message, data=list(), print_threshold=100, end_msg=None, verbose=False, out=None ):
     if verbose:
         print( message )
     if out != None:
@@ -540,20 +541,18 @@ def printlog( message, data=[], print_threshold=100, end_msg=None, verbose=False
         if out != None:
             out.write( '{}\n'.format( end_msg ) )
 
-def cleanup( group_dir, dimensionality, levels, features_hash, spark=False ):
+def cleanup( group_dir, levels_dir, dimensionality, levels, features_hash, spark=False, skip_levels=False ):
     suffix = 'bufferHVs_{}_{}_{}'.format( str(dimensionality), str(levels), str(features_hash) )
-    for prefix in [ 'levels', 'train', 'test' ]:
+    for prefix in [ 'train', 'test' ]:
         datapath = os.path.join( group_dir, '{}_{}'.format( prefix, suffix ) )
-        if prefix == 'levels' or not spark:
+        if not spark:
             datapath = '{}.pkl'.format( datapath )
         if os.path.exists( datapath ):
             if os.path.isfile( datapath ):
                 os.unlink( datapath )
             else:
                 shutil.rmtree( datapath, ignore_errors=True )
-
-def combinations(n, k):
-    n_fac = math.factorial(n)
-    k_fac = math.factorial(k)
-    n_minus_k_fac = math.factorial(n - k)
-    return n_fac/(k_fac*n_minus_k_fac)
+    if not skip_levels:
+        levels_datapath = os.path.join( levels_dir, 'levels_bufferHVs_{}_{}.pkl'.format( dimensionality, levels ) )
+        if os.path.exists(levels_datapath):
+            os.unlink(levels_datapath)

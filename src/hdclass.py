@@ -3,7 +3,7 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Apr 8, 2022'
+__date__ = 'Apr 12, 2022'
 
 import sys, os, time, pickle, itertools, hashlib, math
 import argparse as ap
@@ -212,15 +212,16 @@ if __name__ == '__main__':
             max_group = len( use_features )
         # Keep track of the best <group_size, accuracy>
         mapping = dict()
+        datasetdir = os.sep.join(picklepath.split(os.sep)[:-1])
         # Create the summary file
         if args.dump:
-            summary_filepath = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), 'summary.txt' )
+            summary_filepath = os.path.join( datasetdir, 'summary.txt' )
             if not os.path.exists( summary_filepath ):
                 with open( summary_filepath, 'a+' ) as summary:
                     header = '# Dataset: {}\n'.format( picklepath )
                     header += '# Dimensionality: {}\n'.format( args.dimensionality )
                     header += '# Number of levels: {}\n'.format( args.levels )
-                    header += '# Max retraining iterations: {}\n'.format( args.levels )
+                    header += '# Max retraining iterations: {}\n'.format( args.retrain )
                     header += '# Accuracy threshold (stop condition): {}\n'.format( args.accuracy_threshold )
                     header += '# Accuracy uncertainty (percentage): {}\n'.format( args.accuracy_uncertainty_perc )
                     header += '# Run ID\tGroup Size\tRetraining\tAccuracy'
@@ -247,16 +248,16 @@ if __name__ == '__main__':
                     prev_group_size = group_size
                 if group_size > 0:
                     # Create a directory for the current run
-                    group_dir = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), "HVs", "run_{}".format( group_size ) )
+                    group_dir = os.path.join( datasetdir, "HVs", "run_{}".format( group_size ) )
                     if not os.path.exists( group_dir ):
                         os.makedirs( group_dir )
                     combinations = math.comb( len(best_features), group_size )
                     combinations_counter = 1
                     # Define a set of N features with N equals to "group_size"
                     for comb_features in itertools.combinations( best_features, group_size ):
+                        comb_features = sorted(comb_features)
                         # Build unique identifier for the current set of features
-                        #features_hash = hash( tuple( comb_features ) ) % ( ( sys.maxsize + 1 ) * 2 )
-                        features_hash = hashlib.md5(str(sorted(comb_features)).encode()).hexdigest()
+                        features_hash = hashlib.md5(str(comb_features).encode()).hexdigest()
                         # Create a log for the current run
                         run = None
                         copy_id = 0
@@ -299,6 +300,7 @@ if __name__ == '__main__':
                                                   os.path.splitext( os.path.basename( picklepath ) )[0],
                                                   features_hash,
                                                   workdir=group_dir,
+                                                  levelsdir=datasetdir,
                                                   spark=args.spark,
                                                   slices=args.slices,
                                                   master=args.master,
@@ -307,7 +309,8 @@ if __name__ == '__main__':
                                                   tblock=args.tblock,
                                                   nproc=args.nproc,
                                                   verbose=args.verbose,
-                                                  log=run
+                                                  log=run,
+                                                  seed=args.seed
                                                 )
                         t1model = time.time()
                         fun.printlog( 
@@ -376,7 +379,7 @@ if __name__ == '__main__':
                             run.close()
                         # Cleanup
                         if args.cleanup:
-                            fun.cleanup( group_dir, args.dimensionality, args.levels, features_hash, spark=args.spark )
+                            fun.cleanup( group_dir, datasetdir, args.dimensionality, args.levels, features_hash, spark=args.spark, skip_levels=True )
                         combinations_counter += 1
                     # Keep track of the best results and close the summary
                     if args.dump:
@@ -390,8 +393,13 @@ if __name__ == '__main__':
                                     )
                                 selected_features = list(set(list(itertools.chain(*selected_features))))
         
-        fs_filepath = os.path.join( os.sep.join( picklepath.split( os.sep )[ :-1 ] ), 'selection.txt' )
+        if args.cleanup:
+            levels_datapath = os.path.join( datasetdir, 'levels_bufferHVs_{}_{}.pkl'.format( args.dimensionality, args.levels ) )
+            if os.path.exists(levels_datapath):
+                os.unlink(levels_datapath)
+        
+        fs_filepath = os.path.join( datasetdir, 'selection.txt' )
         with open( fs_filepath, 'w+' ) as fs:
-            for feature in selected_features:
+            for feature in sorted(selected_features):
                 fun.printlog( feature, out=fs )
         fun.printlog( 'Selected features: {}'.format(fs_filepath), verbose=args.verbose )
