@@ -68,6 +68,10 @@ def read_params():
                     action = 'store_true',
                     default = False,
                     help = "Delete the classification model as soon as it produces the prediction accuracy" )
+    p.add_argument( '--keep_levels', 
+                    action = 'store_true',
+                    default = True,
+                    help = "Do not delete the level hypervectors. It works in conjunction with --cleanup only" )
     p.add_argument( '--accuracy_threshold', 
                     type = float,
                     default = 60.0,
@@ -393,7 +397,7 @@ if __name__ == '__main__':
                                     )
                                 selected_features = list(set(list(itertools.chain(*selected_features))))
         
-        if args.cleanup:
+        if args.cleanup and not args.keep_levels:
             levels_datapath = os.path.join( datasetdir, 'levels_bufferHVs_{}_{}.pkl'.format( args.dimensionality, args.levels ) )
             if os.path.exists(levels_datapath):
                 os.unlink(levels_datapath)
