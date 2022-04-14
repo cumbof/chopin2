@@ -1,10 +1,10 @@
 # Hyperdimensional Computing Classifier
 #### Originally forked from [https://github.com/moimani/HD-Permutaion](https://github.com/moimani/HD-Permutaion)
 
-This repository includes some Python 3.7 utilities to build a Hyperdimensional Computing classification model according to the architecture
+This repository includes some Python 3.8 utilities to build a Hyperdimensional Computing classification model according to the architecture
 originally introduced in [https://doi.org/10.1109/DAC.2018.8465708](https://doi.org/10.1109/DAC.2018.8465708)
 
-The `src/generators` folder contains two Python3 scripts able to create training a test datasets with randomly selected samples from:
+The `src/generators` folder contains two Python 3.8 scripts able to create training a test datasets with randomly selected samples from:
 - BRCA, KIRP, and THCA DNA-Methylation data from the paper [Classification of Large DNA Methylation Datasets for Identifying Cancer Drivers](https://doi.org/10.1016/j.bdr.2018.02.005) by Fabrizio Celli, Fabio Cumbo, and Emanuel Weitschek;
 - Gene-expression quantification and Methylation Beta Value experiments provided by [OpenGDC](https://github.com/fabio-cumbo/OpenGDC/) for all the 33 different types of tumors of the TCGA program.
 
