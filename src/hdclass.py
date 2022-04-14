@@ -48,7 +48,7 @@ def read_params():
                              "and build both the training and test set" ) )
     p.add_argument( '--pickle', 
                     type = str,
-                    help = "Path to the pickle file. If specified, '--dataset', '--fieldsep', and '--training' parameters are not used" )
+                    help = "Path to the pickle file. If specified, \"--dataset\", \"--fieldsep\", and \"--training\" parameters are not used" )
     p.add_argument( '--features', 
                     type = str,
                     help = "Path to a file with a single column containing the whole set or a subset of feature" )
