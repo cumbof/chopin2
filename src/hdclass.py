@@ -182,6 +182,9 @@ if __name__ == '__main__':
     # testData:     Matrix in which each row is a datapoint of the testing set and each column is a feature
     # testLabels:   List in which each index contains the label for the data in the same row index of the testData matrix
     if features and trainData and trainLabels and testData and testLabels:
+        # Take track of the best selected features 
+        last_best_group = None
+        last_best_accuracy = 0.0
         selected_features = list()
         # Define the set of features that must be considered for building the HD model
         use_features = list()
@@ -346,7 +349,7 @@ if __name__ == '__main__':
                         fun.printlog( message, verbose=args.verbose, out=run )
                         # Keep track of the best accuracy for the current group size
                         if group_size in mapping:
-                            if best >= mapping[ group_size ][ 0 ][ "accuracy" ]:
+                            if best > mapping[ group_size ][ 0 ][ "accuracy" ]:
                                 threshold = best-(best*args.accuracy_uncertainty_perc)/100.0                                
                                 mapping[ group_size ] = sorted( [ run for run in mapping[ group_size ] if run["accuracy"] >= threshold ], 
                                                                 key=lambda run: run["accuracy"], 
@@ -384,25 +387,32 @@ if __name__ == '__main__':
                         if args.cleanup:
                             fun.cleanup( group_dir, datasetdir, args.dimensionality, args.levels, features_hash, spark=args.spark, skip_levels=True )
                         combinations_counter += 1
-                    # Keep track of the best results and close the summary
+
+                    # Take track of the best result
+                    new_best = mapping[group_size][0]["accuracy"] >= last_best_accuracy
+                    if new_best and args.select_features:
+                        last_best_group = group_size
+                        last_best_accuracy = mapping[group_size][0]["accuracy"]
+                        selected_features = list(set(itertools.chain(*[run["features"] for run in mapping[group_size]])))
+                    # Dump results on summary file
                     if args.dump:
-                        if mapping[ group_size ][ 0 ][ "accuracy" ] >= args.accuracy_threshold:
-                            with open( summary_filepath, 'a+' ) as summary:
-                                for run in mapping[ group_size ]:
-                                    selected_features.append(run["features"])
-                                    fun.printlog( 
-                                        '{}\t{}\t{}\t{}'.format( run[ "run" ], group_size, run[ "retraining" ], run[ "accuracy" ] ),
-                                        out=summary
-                                    )
-                                selected_features = list(set(list(itertools.chain(*selected_features))))
+                        with open(summary_filepath, 'a+') as summary:
+                            for run in mapping[group_size]:
+                                fun.printlog( 
+                                    '{}\t{}\t{}\t{}'.format(run["run"], group_size, run["retraining"], run["accuracy"]),
+                                    out=summary
+                                )
         
         if args.cleanup and not args.keep_levels:
             levels_datapath = os.path.join( datasetdir, 'levels_bufferHVs_{}_{}.pkl'.format( args.dimensionality, args.levels ) )
             if os.path.exists(levels_datapath):
                 os.unlink(levels_datapath)
         
-        fs_filepath = os.path.join( datasetdir, 'selection.txt' )
-        with open( fs_filepath, 'w+' ) as fs:
-            for feature in sorted(selected_features):
-                fun.printlog( feature, out=fs )
-        fun.printlog( 'Selected features: {}'.format(fs_filepath), verbose=args.verbose )
+        if args.select_features:
+            fs_filepath = os.path.join( datasetdir, 'selection.txt' )
+            with open( fs_filepath, 'w+' ) as fs:
+                header = "# Best group size: {}\n# Best accuracy: {}\n# Selected Features:".format(last_best_group, last_best_accuracy)
+                fun.printlog(header, out=fs)
+                for feature in sorted(selected_features):
+                    fun.printlog(feature, out=fs)
+            fun.printlog( 'Selected features: {}'.format(fs_filepath), verbose=args.verbose )
