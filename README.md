@@ -19,12 +19,25 @@ toy model for testing purposes only.
 
 The following command will launch the HD classifier on the `isolet` dataset:
 ```
-python hdclass.py --dimensionality 10000 --levels 100 --retrain 10 --pickle ../dataset/isolet/isolet.pkl --verbose
+python hdclass.py --dimensionality 10000 \
+                  --levels 100 \
+                  --retrain 10 \
+                  --pickle ../dataset/isolet/isolet.pkl \
+                  --verbose
 ```
 
 In order to run it on Spark, other arguments must be specified:
 ```
-python hdclass.py --dimensionality 10000 --levels 100 --retrain 10 --pickle ../dataset/isolet/isolet.pkl --dump --spark --slices 10 --master local --memory 2048m --verbose
+python hdclass.py --dimensionality 10000 \
+                  --levels 100 \
+                  --retrain 10 \
+                  --pickle ../dataset/isolet/isolet.pkl \
+                  --dump \
+                  --spark \
+                  --slices 10 \
+                  --master local \
+                  --memory 2048m \
+                  --verbose
 ```
 
 List of standard arguments:
