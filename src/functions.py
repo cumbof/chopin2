@@ -3,7 +3,7 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Apr 12, 2022'
+__date__ = 'Apr 14, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
@@ -26,25 +26,34 @@ except:
     pass
 
 class HDModel(object):
-    #Initializes a HDModel object
-    #Inputs:
-    #   datasetName; name of the dataset
-    #   features: list of features
-    #   trainData: training data
-    #   trainLabels: training labels
-    #   testData: testing data
-    #   testLabels: testing labels
-    #   D: dimensionality
-    #   totalLevel: number of level hypervectors
-    #   workdir: working directory
-    #   spark: use Spark
-    #   gpu: use GPU
-    #   nproc: number of parallel jobs 
-    #Outputs:
-    #   HDModel object
     def __init__(self, datasetName, hashId, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, levelsdir,
                  spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1, 
                  verbose=False, log=None, seed=0):
+        """
+        Define a HDModel object
+
+        :datasetName:str:           Dataset name or ID
+        :hashId:str:                Unique identifier of the specific run
+        :trainData:list:            Training dataset
+        :trainLabels:list:          Class labels of the training observations
+        :testData:list:             Test dataset
+        :testLabels:list:           Class labels of the test observations
+        :D:int:                     Dimensionality of the hypervectors
+        :totalLevel:int:            Number of HD levels
+        :workdir:str:               Path to the working directory
+        :levelsdir:str:             Path to the folder in which the HD levels are located
+        :spark:bool:                Enable the construction of the HD vectors on a Apache Spark distributed environment
+        :slices:int:                Number of slices for distributing vectors over the Apache Spark cluster
+        :master:str:                Address to the Apache Spark master node
+        :memory:str:                Maximium memory allocated by Apache Spark
+        :gpu:bool:                  Enable the construction of the HD vectors on NVidia GPUs
+        :tblock:int:                Number of blocks on NVidia GPUs
+        :nproc:int:                 Number of processors for running the construction of the hypervectors in multiprocessing
+        :verbose:bool:              Print messages
+        :log:str:                   Path to the log file
+        :seed:int:                  Seed for reproducing the same random hypervectors
+        """
+
         if len(trainData) != len(trainLabels):
             printlog( "Training data and training labels do not have the same size", verbose=verbose, out=log )
             return
@@ -85,13 +94,15 @@ class HDModel(object):
         # Standard multiprocessing params
         self.nproc = nproc
 
-    #Encodes the training or testing data into hypervectors and saves them or
-    #loads the encoded traing or testing data that was saved previously
-    #Inputs: 
-    #   mode: decided to use train data or test data
-    #Outputs:
-    #   none
     def buildBufferHVs(self, mode, verbose=False, log=None):
+        """
+        Save or load already existing encoded training and test datasets
+
+        :mode:str:          Two modes allowed: "train" and "test"
+        :verbose:bool:      Print messages
+        :log:str:           Path to the log file
+        """
+
         if self.spark:
             # Build a Spark context or use the existing one
             # Spark context must be initialised here (see SPARK-5063)
@@ -209,17 +220,19 @@ try:
 except:
     pass
 
-#Performs the initial training of the HD model by adding up all the training
-#hypervectors that belong to each class to create each class hypervector
-#Inputs:
-#   inputLabels: training labels
-#   inputHVs: encoded training data
-#   gpu: use cuda
-#   tblock: threads per block
-#Outputs:
-#   classHVs: class hypervectors
 def oneHvPerClass(inputLabels, inputHVs, gpu=False, tblock=32):
-    #This creates a dict with no duplicates
+    """
+    Perform the initial training of the HD model by adding all the training hypervectors
+    that belong to each class to create class hypervectors
+
+    It returns class hypervectors
+
+    :inputLabels:list:      Class labels of the input data
+    :inputHVs:list:         HD encoded input data 
+    :gpu:bool:              Enable the execution on NVidia GPUs
+    :tblock:int:            Number of blocks on NVidia GPUs
+    """
+    
     classHVs = dict()
     for i in range(len(inputLabels)):
         name = inputLabels[i]
@@ -236,15 +249,23 @@ def oneHvPerClass(inputLabels, inputHVs, gpu=False, tblock=32):
     return classHVs
 
 def inner_product(x, y):
+    """
+    Compute the inner product on two hypervectors
+
+    :x:numpy.array:     Hypervector x
+    :y:numpy.array:     Hypervector y
+    """
+
     return np.dot(x,y)  / (np.linalg.norm(x) * np.linalg.norm(y) + 0.0)
 
-#Finds the level hypervector index for the corresponding feature value
-#Inputs:
-#   value: feature value
-#   levelList: list of level hypervector ranges
-#Outputs:
-#   keyIndex: index of the level hypervector in levelHVs corresponding the the input value
 def numToKey(value, levelList):
+    """
+    Find the level hypervector index for the corresponding feature value
+
+    :value:float:       Feature value
+    :levelList:list:    List of level hypervector ranges
+    """
+
     if (value == levelList[-1]):
         return len(levelList)-2
     upperIndex = len(levelList) - 1
@@ -265,13 +286,16 @@ def numToKey(value, levelList):
             lowerIndex = lowerIndex + 1
     return keyIndex
 
-#Splits up the feature value range into level hypervector ranges
-#Inputs:
-#   buffers: data matrix
-#   totalLevel: number of level hypervector ranges
-#Outputs:
-#   levelList: list of the level hypervector ranges
 def getlevelList(buffers, totalLevel):
+    """
+    Split the feature value range into level hypervector ranges
+
+    It returns the list of level hypervector ranges
+
+    :buffers:list:      Data matrix
+    :totalLevel:int:    Number of level hypervector ranges
+    """
+
     minimum = buffers[0][0]
     maximum = buffers[0][0]
     levelList = list()
@@ -289,15 +313,19 @@ def getlevelList(buffers, totalLevel):
     levelList.append(maximum)
     return levelList
 
-#Generates the level hypervector dictionary
-#Inputs:
-#   totalLevel: number of level hypervectors
-#   D: dimensionality
-#   gpu: use cuda
-#   tblock: threads per block
-#Outputs:
-#   levelHVs: level hypervector dictionary
 def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None, seed=0):
+    """
+    Generate the level hypervector dictionary
+
+    :totalLevel:int:    Number of level hypervector
+    :D:int:             Dimensionality of the hypervectors
+    :gpu:bool:          Enable the generation of the HD levels on NVidia GPUs
+    :tblock:int:        Number of blocks on NVidia GPUs
+    :verbose:bool:      Print messages
+    :log:str:           Path to the log file
+    :seed:int:          Seed for reproducing the same random hypervectors
+    """
+
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
@@ -318,17 +346,28 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None, se
     return levelHVs
 
 def EncodeToHV_wrapper(inputBuffer, position, D=10000, levelHVs=dict(), levelList=list()):
+    """
+    Wrapper for the EncodeToHV function for multiprocessing
+
+    :inputBuffer:list:      Input data that must be encoded
+    :position:int           Position of chunk data for multiprocessing
+    :D:int:                 Dimensionality of the hypervectors
+    :levelHVs:dict:         Level hypervectors
+    :levelList:list:        List of levels
+    """
+
     return position, EncodeToHV(inputBuffer, D, levelHVs, levelList)
 
-#Encodes a single datapoint into a hypervector
-#Inputs:
-#   inputBuffer: data to encode
-#   D: dimensionality
-#   levelHVs: level hypervector dictionary
-#   IDHVs: ID hypervector dictionary
-#Outputs:
-#   sumHV: encoded data
 def EncodeToHV(inputBuffer, D, levelHVs, levelList):
+    """
+    Encode a single datapoint into a hypervector
+
+    :inputBuffer:list:      Input data that must be encoded
+    :D:int:                 Dimensionality of the hypervectors
+    :levelHVs:dict:         Level hypervectors
+    :levelList:list:        List of levels
+    """
+
     sumHV = np.zeros(D, dtype = np.int)
     for keyVal in range(len(inputBuffer)):
         key = numToKey(inputBuffer[keyVal], levelList)
@@ -336,13 +375,15 @@ def EncodeToHV(inputBuffer, D, levelHVs, levelList):
         sumHV = sumHV + np.roll(levelHV, keyVal)
     return sumHV
                     
-# This function attempts to guess the class of the input vector based on the model given
-#Inputs:
-#   classHVs: class hypervectors
-#   inputHV: query hypervector
-#Outputs:
-#   guess: class that the model classifies the query hypervector as
 def checkVector(classHVs, inputHV, labelHV):
+    """
+    Try to guess the class of the input vector based on the HD model
+
+    :classHVs:dict:         Class hypervectors
+    :inputHV:numpy.array:   Input hypervector
+    :labelHV:str:           Label of the input hypervector
+    """
+
     guess = list(classHVs.keys())[0]
     maximum = np.NINF
     count = dict()
@@ -355,17 +396,17 @@ def checkVector(classHVs, inputHV, labelHV):
         return (1, guess)
     return (0, guess, labelHV, inputHV)
 
-#Iterates through the training set once to retrain the model
-#Inputs:
-#   classHVs: class hypervectors
-#   testHVs: encoded train data
-#   testLabels: training labels
-#   spark: use Spark
-#   dataset: dataset name
-#Outputs:
-#   retClassHVs: retrained class hypervectors
-#   error: retraining error rate
-def trainOneTime(classHVs, trainHVs, trainLabels, dataset="", verbose=False, log=None):
+def trainOneTime(classHVs, trainHVs, trainLabels, verbose=False, log=None):
+    """
+    Iterate over the training set once to retrain the HD model in order to minimize the error rate
+
+    :classHVs:dict:         Class hypervectors
+    :trainHVs:list:         Train hypervectors
+    :trainLabels:list:      Label of the train hypervectors
+    :verbose:bool:          Print messages
+    :log:str:               Path to the log file
+    """
+
     retClassHVs = copy.deepcopy(classHVs)
     wrong_num = 0
     for index in range(len(trainLabels)):
@@ -378,14 +419,22 @@ def trainOneTime(classHVs, trainHVs, trainLabels, dataset="", verbose=False, log
     printlog( "\tError: {}".format(error), verbose=verbose, out=log )
     return retClassHVs, error
 
-#Tests the HD model on the testing set
-#Inputs:
-#   classHVs: class hypervectors
-#   testHVs: encoded test data
-#   testLabels: testing labels
-#Outputs:
-#   accuracy: test accuracy
 def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
+    """
+    Test the HD model on the testing dataset and return the accuracy
+
+    :classHVs:dict:         Class hypervectors
+    :testHVs:list:          Test hypervectors
+    :testLabels:list:       Label of the test hypervectors
+    :spark:bool:            Enable the construction of the HD vectors on a Apache Spark distributed environment
+    :slices:int:            Number of slices for distributing vectors over the Apache Spark cluster
+    :master:str:            Address to the Apache Spark master node
+    :memory:str:            Maximium memory allocated by Apache Spark
+    :dataset:str:           Dataset name or ID
+    :verbose:bool:          Print messages
+    :log:str:               Path to the log file
+    """
+
     if spark:
         # Build a Spark context or use the existing one
         # Spark context must be initialised here (see SPARK-5063)
@@ -404,21 +453,27 @@ def test(classHVs, testHVs, testLabels, spark=False, slices=None, master=None, m
     printlog( "\tThe accuracy is: {}".format(accuracy), verbose=verbose, out=log )
     return accuracy
 
-#Retrains the HD model n times and evaluates the accuracy of the model
-#after each retraining iteration
-#Inputs:
-#   classHVs: class hypervectors
-#   trainHVs: encoded training data
-#   trainLabels: training labels
-#   testHVs: encoded test data
-#   testLabels: testing labels
-#   retrain: max retrain iterations
-#   spark: use Spark
-#   dataset: dataset name
-#Outputs:
-#   accuracy: array containing the accuracies after each retraining iteration
 def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, stop=False,
                 spark=False, slices=None, master=None, memory=None, dataset="", verbose=False, log=None):
+    """
+    Retrain the HD model N times and evaluate the accuracy of the model after each retraining iteration
+
+    :classHVs:dict:         Class hypervectors
+    :trainHVs:list:         Train hypervectors
+    :trainLabels:list:      Label of the train hypervectors
+    :testHVs:list:          Test hypervectors
+    :testLabels:list:       Label of the test hypervectors
+    :retrain:int:           Maximum number of retraining iterations
+    :stop:bool:             Stop retraining if the error rate doesn't change with respect to the previous retraining iteration
+    :spark:bool:            Enable the construction of the HD vectors on a Apache Spark distributed environment
+    :slices:int:            Number of slices for distributing vectors over the Apache Spark cluster
+    :master:str:            Address to the Apache Spark master node
+    :memory:str:            Maximium memory allocated by Apache Spark
+    :dataset:str:           Dataset name or ID
+    :verbose:bool:          Print messages
+    :log:str:               Path to the log file
+    """
+
     accuracy = list()
     retraining = list()
     currClassHV = copy.deepcopy(classHVs)
@@ -430,7 +485,7 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
     for i in range(retrain):
         printlog( "Retraining iteration: {}".format(i+1), verbose=verbose, out=log )
         currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels, 
-                                          dataset=dataset, verbose=verbose, log=log)
+                                          verbose=verbose, log=log)
         accuracy.append( test(currClassHV, testHVs, testLabels, 
                               spark=spark, slices=slices, master=master, memory=memory, 
                               dataset=dataset, verbose=verbose, log=log) )
@@ -440,26 +495,35 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
         prev_error = error
     return accuracy, retraining
 
-#Creates an HD model object, encodes the training and testing data, and
-#performs the initial training of the HD model
-#Inputs:
-#   trainData: training set
-#   trainLabes: training labels
-#   testData: testing set
-#   testLabels: testing labels
-#   D: dimensionality
-#   nLevels: number of level hypervectors
-#   datasetName: name of the dataset
-#   workdir: working directory
-#   spark: use Spark
-#   gpu: use GPU
-#   nproc: number of parallel jobs
-#Outputs:
-#   model: HDModel object containing the encoded data, labels, and class HVs
 def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, hash_id, workdir='./', levelsdir='./',
                  spark=False, slices=None, master=None, memory=None,
                  gpu=False, tblock=32, nproc=1, 
                  verbose=False, log=None, seed=0):
+    """
+    Create an HD model object, encode the training and test datasets, and perform the initial training of the HD model
+
+    :trainData:list:        Train dataset
+    :trainLabels:list:      Label of the train data
+    :testData:list:         Test dataset
+    :testLabels:list:       Label of the test data
+    :D:int:                 Dimensionality of the hypervectors
+    :nLevels:int:           Number of level hypervectors
+    :datasetName:str:       Dataset name or ID
+    :hash_id:str:           Unique identifier of the specific run
+    :workdir:str:           Path to the working directory
+    :levelsdir:str:         Path to the folder in which the HD levels are located
+    :spark:bool:            Enable the construction of the HD vectors on a Apache Spark distributed environment
+    :slices:int:            Number of slices for distributing vectors over the Apache Spark cluster
+    :master:str:            Address to the Apache Spark master node
+    :memory:str:            Maximium memory allocated by Apache Spark
+    :gpu:bool:              Enable the generation of the HD levels on NVidia GPUs
+    :tblock:int:            Number of blocks on NVidia GPUs
+    :nproc:int:             Number of processors for running the construction of the hypervectors in multiprocessing
+    :verbose:bool:          Print messages
+    :log:str:               Path to the log file
+    :seed:int:              Seed for reproducing the same random hypervectors
+    """
+
     # Initialise HDModel
     model = HDModel( datasetName, hash_id, trainData, trainLabels, testData, testLables, D, nLevels, workdir, levelsdir,
                      spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc, 
@@ -470,11 +534,16 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
     model.buildBufferHVs("test", verbose=verbose, log=log)
     return model
 
-# Last line which starts with '#' will be considered header
-# Last column contains classes
-# First column contains the IDs of the observations
-# Header line contains the feature names
 def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
+    """
+    Build a PKL object with the training and test datasets
+
+    :filepath:str:      Path to the dataset input file
+    :separator:str:     Separator used to split fields in the input dataset
+    :training:int:      Percentage of observations used to build the training (and implicitly the test) dataset
+    :seed:int:          Seed for reproducing the same training and test datasets
+    """
+
     # Set a seed for the random sampling of the dataset
     random.seed( seed )
     # List of features
@@ -508,8 +577,19 @@ def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
         testLabels.extend( [ classid ]*( len( indices )-len( training_indices ) ) )
     return features, trainData, trainLabels, testData, testLabels
 
-# Rebuild the original CSV dataset starting from the PKL file
 def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, outpath, sep=',' ):
+    """
+    Build a dataset starting from the PKL object with training and test data
+
+    :trainData:list:        Training dataset
+    :trainLabels:list:      Class labels of the training dataset
+    :testData:list:         Test dataset
+    :testLabels:list:       Class labels of the test dataset
+    :features:list:         Feature IDs
+    :outpath:str:           Path to the output dataset file
+    :sep:str:               Separator used to split fields in the output dataset
+    """
+
     data = trainData + testData
     labels = trainLabels + testLabels
     for observation in range( len( data ) ):
@@ -521,6 +601,17 @@ def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, ou
             flatfile.write( '{}\n'.format( sep.join( [ str(value) for value in data[ observation ] ] ) ) )
 
 def printlog( message, data=list(), print_threshold=100, end_msg=None, verbose=False, out=None ):
+    """
+    Send messages to the stdout and/or to a file
+
+    :message:str:               Custom message
+    :data:list:                 List of data to be dumped to stdout/file
+    :print_threshold:int:       Do not print data if its length is greater than this threshold
+    :end_msg:str:               Print this message at the end
+    :verbose:bool:              Print messages on the stdout
+    :out:str:                   Print messages on file
+    """
+
     if verbose:
         print( message )
     if out != None:
@@ -542,6 +633,18 @@ def printlog( message, data=list(), print_threshold=100, end_msg=None, verbose=F
             out.write( '{}\n'.format( end_msg ) )
 
 def cleanup( group_dir, levels_dir, dimensionality, levels, features_hash, spark=False, skip_levels=False ):
+    """
+    Remove the HD model
+
+    :group_dir:str:             Path to the run folder
+    :levels_dir:str:            Path to the folder with the HD levels
+    :dimensionality:int:        Dimensionality of the hypervectors
+    :levels:int:                Number of HD levels
+    :features_hash:str:         Unique identifier of the specific run
+    :spark:bool:                Did you use Apache Spark?
+    :skip_levels:bool:          Do not remove the HD levels
+    """
+    
     suffix = 'bufferHVs_{}_{}_{}'.format( str(dimensionality), str(levels), str(features_hash) )
     for prefix in [ 'train', 'test' ]:
         datapath = os.path.join( group_dir, '{}_{}'.format( prefix, suffix ) )

@@ -3,7 +3,7 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Apr 12, 2022'
+__date__ = 'Apr 14, 2022'
 
 import sys, os, time, pickle, itertools, hashlib, math
 import argparse as ap
@@ -48,18 +48,19 @@ def read_params():
                              "and build both the training and test set" ) )
     p.add_argument( '--pickle', 
                     type = str,
-                    help = ( "Path to the pickle file. If specified, both '--dataset', '--fieldsep', "
-                             "and '--training' parameters are not used" ) )
+                    help = "Path to the pickle file. If specified, '--dataset', '--fieldsep', and '--training' parameters are not used" )
     p.add_argument( '--features', 
                     type = str,
                     help = "Path to a file with a single column containing the whole set or a subset of feature" )
-    p.add_argument( '--group',
-                    type = str,
-                    help = ( "Minimum and maximum number of features among those specified with the --features argument. " 
-                             "It is equals to the number of features under --features if not specified. "
-                             "Otherwise, it must be less or equals to the number of features under --features. "
-                             "Warning: computationally intense! "
-                             "Syntax: min:max" ) )
+    p.add_argument( '--select_features',
+                    action = 'store_true',
+                    default = False,
+                    help = ( "This triggers the backward variable selection method for the identification of the most significant features. " 
+                             "Warning: computationally intense!") )
+    p.add_argument( '--group_min', 
+                    type = int,
+                    default = 1,
+                    help = "Minimum number of features among those specified with the --features argument" )
     p.add_argument( '--dump', 
                     action = 'store_true',
                     default = False,
@@ -202,18 +203,16 @@ if __name__ == '__main__':
         else:
             use_features = features
         # Define the minimum and maximum number of features per group
-        if args.group:
-            try:
-                min_group, max_group = [ int(g) for g in args.group.split( ':' ) ]
-                if min_group > max_group:
-                    raise Exception( ( "Incorrect --group argument! "
-                                       "Left end must be greater than or equals to the right end" ) )
-            except:
-                raise Exception( ( "Incorrect --group argument! "
-                                   "Interval must contain numbers" ) )
+        if args.select_features:
+            max_group = len(use_features)
+            if args.group_min > max_group:
+                raise Exception( ( "An error has occurred while defining groups. "
+                                   "Please make sure that --group_min is lower than or equals to the number of features in your dataset." ) )
+            min_group = args.group_min
         else:
-            min_group = len( use_features )
-            max_group = len( use_features )
+            # Set min and max group size equals to the length of the features in your dataset
+            # This will run a single instance of the classifier
+            min_group = max_group = len(use_features)
         # Keep track of the best <group_size, accuracy>
         mapping = dict()
         datasetdir = os.sep.join(picklepath.split(os.sep)[:-1])
