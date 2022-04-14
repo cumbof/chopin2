@@ -24,55 +24,56 @@ python hdclass.py --dimensionality 10000 --levels 100 --retrain 10 --pickle ../d
 
 In order to run it on Spark, other arguments must be specified:
 ```
-# The isolet dataset contains 617 features
-python hdclass.py --dimensionality 10000 --levels 100 --retrain 10 --pickle ../dataset/isolet/isolet.pkl --group 1:617 --dump --spark --slices 10 --master local --memory 2048m --verbose
+python hdclass.py --dimensionality 10000 --levels 100 --retrain 10 --pickle ../dataset/isolet/isolet.pkl --dump --spark --slices 10 --master local --memory 2048m --verbose
 ```
 
 List of standard arguments:
 ```
---dimensionality    - Dimensionality of the HDC model (default 10000)
---levels            - Number of level hypervectors
---retrain           - Number of retraining iterations (default 0)
---stop              - Stop retraining if the error rate does not change (default False)
---dataset           - Path to the dataset file
---fieldsep          - Field separator (default ',')
---training          - Percentage of observations that will be used to train the model. 
-                      The remaining percentage will be used to test the classification model (default 80)
---seed              - Seed for reproducing random sampling of the observations in the dataset 
-                      and build both the training and test set (default 0)
---pickle            - Path to the pickle file. If specified, both '--dataset', '--fieldsep', 
-                      and '--training' parameters are not used
---dump              - Build a summary and log files (default False)
---cleanup           - Delete the classification model as soon as it produces the prediction accuracy (default False)
---nproc             - Number of parallel jobs for the creation of the HD model.
-                      This argument is ignored if --spark is enabled (default 1)
---verbose           - Print results in real time (default False)
+--dimensionality              -- Dimensionality of the HDC model (default 10000)
+--levels                      -- Number of level hypervectors
+--retrain                     -- Number of retraining iterations (default 0)
+--stop                        -- Stop retraining if the error rate does not change (default False)
+--dataset                     -- Path to the dataset file
+--fieldsep                    -- Field separator (default ",")
+--training                    -- Percentage of observations that will be used to train the model. 
+                                 The remaining percentage will be used to test the classification model (default 80)
+--seed                        -- Seed for reproducing random sampling of the observations in the dataset 
+                                 and build both the training and test set (default 0)
+--pickle                      -- Path to the pickle file. If specified, "--dataset", "--fieldsep", and "--training" parameters are not used
+--dump                        -- Build a summary and log files (default False)
+--cleanup                     -- Delete the classification model as soon as it produces the prediction accuracy (default False)
+--keep_levels                 -- Do not delete the level hypervectors. It works in conjunction with --cleanup only (default True)
+--nproc                       -- Number of parallel jobs for the creation of the HD model.
+                                 This argument is ignored if --spark is enabled (default 1)
+--verbose                     -- Print results in real time (default False)
+--version                     -- Print the current hdclass.py version and exit
 ```
 
 List of arguments to enable backward variable selection:
 ```
---features          - Path to a file with a single column containing the whole set or a subset of feature
---group             - Minimum and maximum number of features among those specified with the --features argument. 
-                      It is equals to the number of features under --features if not specified. 
-                      Otherwise, it must be less or equals to the number of features under --features. 
-                      Warning: computationally intense! Syntax: min:max
+--features                    -- Path to a file with a single column containing the whole set or a subset of feature
+--select_features             -- This triggers the backward variable selection method for the identification of the most significant features.
+                                 Warning: computationally intense!
+--group_min                   -- Minimum number of features among those specified with the --features argument (default 1)
+--accuracy_threshold          -- Stop the execution if the best accuracy achieved during the previous group of runs is lower than this number (default 60.0)
+--accuracy_uncertainty_perc   -- Take a run into account even if its accuracy is lower than the best accuracy achieved in the same group minus its "accuracy_uncertainty_perc" percent
 ```
 
 List of argument for the execution of the classifier on a Spark distributed environment:
 ```
---spark             - Build the classification model in a Apache Spark distributed environment
---slices            - Number of slices in case --spark argument is enabled. 
-                      This argument is ignored if --gpu is enabled
---master            - Master node address
---memory            - Executor memory
+--spark                       -- Build the classification model in a Apache Spark distributed environment
+--slices                      -- Number of slices in case --spark argument is enabled. 
+                                 This argument is ignored if --gpu is enabled
+--master                      -- Master node address
+--memory                      -- Executor memory
 ```
 
 List of arguments for the execution of the classifier on an NVidia powered GPU:
 ```
---gpu               - Build the classification model on an NVidia powered GPU. 
-                      This argument is ignored if --spark is specified
---tblock            - Number of threads per block in case --gpu argument is enabled. 
-                      This argument is ignored if --spark is enabled
+--gpu                         -- Build the classification model on an NVidia powered GPU. 
+                                 This argument is ignored if --spark is specified
+--tblock                      -- Number of threads per block in case --gpu argument is enabled. 
+                                 This argument is ignored if --spark is enabled
 ```
 
 ### Credits
