@@ -1,9 +1,9 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Apr 14, 2022'
+__date__ = 'Apr 15, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
@@ -11,19 +11,32 @@ import multiprocessing as mp
 from functools import partial
 warnings.filterwarnings("ignore")
 
-# Try to load Spark
-try:
-    from pyspark import SparkConf, SparkContext
-except:
-    print("WARNING: PySpark not found")
-    pass
+def load_optional_modules(pyspark=False, numba=False, verbose=False):
+    """
+    Take control of the optional modules
 
-# Try to load Numba
-try:
-    from numba import cuda
-except:
-    print("WARNING: Numba not found")
-    pass
+    :pyspark:bool:      Load PySpark
+    :numba:bool:        Load Numba
+    :verbose:bool:      Print messages
+    """
+
+    if pyspark:
+        # Try to load PySpark
+        try:
+            from pyspark import SparkConf, SparkContext
+        except:
+            if verbose:
+                print("WARNING: PySpark not found")
+            pass
+
+    if numba:
+        # Try to load Numba
+        try:
+            from numba import cuda
+        except:
+            if verbose:
+                print("WARNING: Numba not found")
+            pass
 
 class HDModel(object):
     def __init__(self, datasetName, hashId, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, levelsdir,

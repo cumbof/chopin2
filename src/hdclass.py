@@ -1,14 +1,40 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '0.01'
-__date__ = 'Apr 14, 2022'
+__date__ = 'Apr 15, 2022'
 
-import sys, os, time, pickle, itertools, hashlib, math
+import sys
+
+# Control current Python version
+# It requires Python 3.8 or higher
+if float("{}.{}".format(sys.version_info[0], sys.version_info[1])) < 3.8:
+    raise Exception("HD-Classifier requires Python 3.8, your current Python version is {}.{}.{}"
+                    .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
+
+import os, time, pickle, itertools, hashlib, math
 import argparse as ap
 import numpy as np
 import functions as fun
+
+def cite():
+    """
+    Custom argparse action to print citations and exit
+    Usage: python hdclass.py --cite
+    """
+    
+    class citeAction(ap.Action):
+        def __init__(self, nargs=0, **kw):
+            super().__init__(nargs=nargs, **kw)
+        def __call__(self, parser, args, values, option_string=None):
+            print("\nIf you are using this software for your research, please credit us in your manuscript by citing:\n\n"
+                  "Cumbo, F., Cappelli, E. and Weitschek, E., 2020\n"
+                  "A brain-inspired hyperdimensional computing approach for classifying massive DNA methylation data of cancer\n"
+                  "Algorithms, 13(9), p.233\n"
+                  "https://doi.org/10.3390/a13090233\n")
+            parser.exit()
+    return citeAction
 
 def read_params():
     p = ap.ArgumentParser( description = ( "The hdclass.py script builds and tests a Hyperdimensional Computing (HDC) "
@@ -115,10 +141,14 @@ def read_params():
                     default = 1,
                     help = ( "Number of parallel jobs for the creation of the HD model. "
                              "This argument is ignored if --spark is enabled" ) )
+    # General purpose
     p.add_argument( '--verbose',
                     action = 'store_true',
                     default = False,
                     help = "Print results in real time" )
+    p.add_argument( '--cite', 
+                    action = cite(),
+                    help = "Print references and exit" )
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
@@ -133,6 +163,9 @@ if __name__ == '__main__':
         'hdclass v{} ({})'.format( __version__, __date__ ),
         verbose=args.verbose
     )
+
+    # Try to load optional modules
+    fun.load_optional_modules(pyspark=args.spark, numba=args.gpu, verbose=args.verbose)
     
     if args.pickle:
         fun.printlog( 
@@ -391,9 +424,12 @@ if __name__ == '__main__':
                     # Take track of the best result
                     new_best = mapping[group_size][0]["accuracy"] >= last_best_accuracy
                     if new_best and args.select_features:
+                        selected_features = list()
                         last_best_group = group_size
                         last_best_accuracy = mapping[group_size][0]["accuracy"]
-                        selected_features = list(set(itertools.chain(*[run["features"] for run in mapping[group_size]])))
+                        for run in mapping[group_size]:
+                            selected_features.append(run["features"])
+                        selected_features = list(set(list(itertools.chain(*selected_features))))
                     # Dump results on summary file
                     if args.dump:
                         with open(summary_filepath, 'a+') as summary:
