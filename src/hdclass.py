@@ -71,7 +71,7 @@ def read_params():
                     help = "Delete the classification model as soon as it produces the prediction accuracy" )
     p.add_argument( '--keep_levels', 
                     action = 'store_true',
-                    default = True,
+                    default = False,
                     help = "Do not delete the level hypervectors. It works in conjunction with --cleanup only" )
     p.add_argument( '--accuracy_threshold', 
                     type = float,
