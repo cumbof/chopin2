@@ -10,7 +10,7 @@ import sys
 # Control current Python version
 # It requires Python 3.8 or higher
 if float("{}.{}".format(sys.version_info[0], sys.version_info[1])) < 3.8:
-    raise Exception("HD-Classifier requires Python 3.8, your current Python version is {}.{}.{}"
+    raise Exception("chopin requires Python 3.8, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
 import os, time, pickle, itertools, hashlib, math
@@ -21,7 +21,7 @@ import functions as fun
 def cite():
     """
     Custom argparse action to print citations and exit
-    Usage: python hdclass.py --cite
+    Usage: python chopin.py --cite
     """
     
     class citeAction(ap.Action):
@@ -37,13 +37,13 @@ def cite():
     return citeAction
 
 def read_params():
-    p = ap.ArgumentParser( description = ( "The hdclass.py script builds and tests a Hyperdimensional Computing (HDC) "
+    p = ap.ArgumentParser( description = ( "The chopin.py script builds and tests a Hyperdimensional Computing "
                                            "classification model on a input dataset." ),
                            formatter_class = ap.ArgumentDefaultsHelpFormatter )
     p.add_argument( '--dimensionality', 
                     type = int,
                     default = 10000,
-                    help = "Dimensionality of the HDC model" )
+                    help = "Dimensionality of the HD model" )
     p.add_argument( '--levels', 
                     type = int,
                     help = "Number of level hypervectors" )
@@ -152,15 +152,15 @@ def read_params():
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
-                    version = 'hdclass.py version {} ({})'.format( __version__, __date__ ),
-                    help = "Print the current hdclass.py version and exit" )
+                    version = 'chopin.py version {} ({})'.format( __version__, __date__ ),
+                    help = "Print the current chopin.py version and exit" )
     return p.parse_args()
 
 if __name__ == '__main__':
     # Load command line parameters
     args = read_params()
     fun.printlog( 
-        'hdclass v{} ({})'.format( __version__, __date__ ),
+        'chopin v{} ({})'.format( __version__, __date__ ),
         verbose=args.verbose
     )
 
