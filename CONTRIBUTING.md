@@ -1,6 +1,6 @@
 ### Contributions guidelines
 
-Contributing to the HD-Classifier development is allowed through the submission of new Issues and Pull Requests (PRs) only.
+Contributing to the chopin2 development is allowed through the submission of new Issues and Pull Requests (PRs) only.
 
 In case of bugs:
 * be sure there are no existing issues concerning the same bug before opening a new one;

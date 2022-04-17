@@ -2,15 +2,15 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '0.01'
-__date__ = 'Apr 15, 2022'
+__version__ = '1.0'
+__date__ = 'Apr 16, 2022'
 
 import sys
 
 # Control current Python version
 # It requires Python 3.8 or higher
 if float("{}.{}".format(sys.version_info[0], sys.version_info[1])) < 3.8:
-    raise Exception("chopin requires Python 3.8, your current Python version is {}.{}.{}"
+    raise Exception("chopin2 requires Python 3.8, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
 import os, time, pickle, itertools, hashlib, math
@@ -21,7 +21,7 @@ import functions as fun
 def cite():
     """
     Custom argparse action to print citations and exit
-    Usage: python chopin.py --cite
+    Usage: python chopin2.py --cite
     """
     
     class citeAction(ap.Action):
@@ -37,7 +37,7 @@ def cite():
     return citeAction
 
 def read_params():
-    p = ap.ArgumentParser( description = ( "The chopin.py script builds and tests a Hyperdimensional Computing "
+    p = ap.ArgumentParser( description = ( "The chopin2.py script builds and tests a Hyperdimensional Computing "
                                            "classification model on a input dataset." ),
                            formatter_class = ap.ArgumentDefaultsHelpFormatter )
     p.add_argument( '--dimensionality', 
@@ -152,15 +152,15 @@ def read_params():
     p.add_argument( '-v', 
                     '--version', 
                     action = 'version',
-                    version = 'chopin.py version {} ({})'.format( __version__, __date__ ),
-                    help = "Print the current chopin.py version and exit" )
+                    version = 'chopin2.py version {} ({})'.format( __version__, __date__ ),
+                    help = "Print the current chopin2.py version and exit" )
     return p.parse_args()
 
-def chopin():
+def chopin2():
     # Load command line parameters
     args = read_params()
     fun.printlog( 
-        'chopin v{} ({})'.format( __version__, __date__ ),
+        'chopin2 v{} ({})'.format( __version__, __date__ ),
         verbose=args.verbose
     )
 
@@ -455,6 +455,6 @@ def chopin():
 
 if __name__ == '__main__':
     t0 = time.time()
-    chopin()
+    chopin2()
     t1 = time.time()
     info('\nTotal elapsed time {}s\n'.format(int(t1 - t0)))

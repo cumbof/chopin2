@@ -1,4 +1,4 @@
-# chopin
+# chopin2
 Supervised **C**lassification with **H**yperdimensional C**o**m**p**ut**in**g
 #### Originally forked from [https://github.com/moimani/HD-Permutaion](https://github.com/moimani/HD-Permutaion)
 
@@ -16,11 +16,31 @@ Due to the size of the datasets, they have not been reported on this repository 
 The `isolet` dataset is part of the original forked version of the repository and it has been maintained in order to provide a simple 
 toy model for testing purposes only.
 
+### Install
+
+We deployed `chopin2` as a Python 3.8 package that can be installed through `pip` and `conda`, as well as a Docker image.
+
+Please, use one of the following commands to start playing with `chopin2`:
+
+```
+# Install chopin2 with pip
+pip install chopin2
+
+# Install chopin2 with conda
+conda install -c conda-forge chopin2
+
+# Initialise the Docker image
+docker build -t chopin2 .
+docker run -it chopin2
+```
+
 ### Usage
 
-The following command will launch the HD classifier on the `isolet` dataset:
+Once installed, you are ready to start playing with `chopin2`.
+
+Try running the following command to run `chopin2` on the `isolet` dataset:
 ```
-python chopin.py --dimensionality 10000 \
+python chopin2.py --dimensionality 10000 \
                  --levels 100 \
                  --retrain 10 \
                  --pickle ../dataset/isolet/isolet.pkl \
@@ -29,7 +49,7 @@ python chopin.py --dimensionality 10000 \
 
 In order to run it on Spark, other arguments must be specified:
 ```
-python chopin.py --dimensionality 10000 \
+python chopin2.py --dimensionality 10000 \
                  --levels 100 \
                  --retrain 10 \
                  --pickle ../dataset/isolet/isolet.pkl \
@@ -43,7 +63,7 @@ python chopin.py --dimensionality 10000 \
 
 List of standard arguments:
 ```
---dimensionality    -- Dimensionality of the HDC model (default 10000)
+--dimensionality    -- Dimensionality of the HD model (default 10000)
 --levels            -- Number of level hypervectors
 --retrain           -- Number of retraining iterations (default 0)
 --stop              -- Stop retraining if the error rate does not change (default False)
@@ -61,7 +81,7 @@ List of standard arguments:
                        This argument is ignored if --spark is enabled (default 1)
 --verbose           -- Print results in real time (default False)
 --cite              -- Print references and exit
--v, --version       -- Print the current chopin.py version and exit
+-v, --version       -- Print the current chopin2.py version and exit
 ```
 
 List of arguments to enable backward variable selection:
@@ -83,7 +103,7 @@ List of argument for the execution of the classifier on a Spark distributed envi
 --memory    -- Executor memory
 ```
 
-List of arguments for the execution of the classifier on an NVidia powered GPU:
+List of arguments for the execution of the classifier on NVidia powered GPUs:
 ```
 --gpu       -- Build the classification model on an NVidia powered GPU. 
                This argument is ignored if --spark is specified
