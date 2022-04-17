@@ -2,14 +2,14 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 __date__ = 'Apr 17, 2022'
 
 import sys
 
 # Control current Python version
 # It requires Python 3.8 or higher
-if float("{}.{}".format(sys.version_info[0], sys.version_info[1])) < 3.8:
+if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and  sys.version_info[1] < 8):
     raise Exception("chopin2 requires Python 3.8, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
