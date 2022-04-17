@@ -1,10 +1,11 @@
 import sys, setuptools
 
-if float("{}.{}".format(sys.version_info[0], sys.version_info[1])) < 3.8:
-    sys.stdout.write("chopin2 requires Python 3.8 or higher. Please update your Python installation")
+if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and  sys.version_info[1] < 8):
+    sys.stdout.write("chopin2 requires Python 3.8 or higher. Your Python your current Python version is {}.{}.{}"
+                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
 setuptools.setup(name='chopin2',
-                 version='1.0.1',
+                 version='1.0.2',
                  author='Fabio Cumbo',
                  author_email='fabio.cumbo@gmail.com',
                  url='http://github.com/fabio-cumbo/chopin2',
