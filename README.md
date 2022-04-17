@@ -60,7 +60,8 @@ List of standard arguments:
 --nproc             -- Number of parallel jobs for the creation of the HD model.
                        This argument is ignored if --spark is enabled (default 1)
 --verbose           -- Print results in real time (default False)
---version           -- Print the current chopin.py version and exit
+--cite              -- Print references and exit
+-v, --version       -- Print the current chopin.py version and exit
 ```
 
 List of arguments to enable backward variable selection:
