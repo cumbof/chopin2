@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0'
-__date__ = 'Apr 16, 2022'
+__version__ = '1.0.1'
+__date__ = 'Apr 17, 2022'
 
 import sys
 
@@ -16,7 +16,7 @@ if float("{}.{}".format(sys.version_info[0], sys.version_info[1])) < 3.8:
 import os, time, pickle, itertools, hashlib, math
 import argparse as ap
 import numpy as np
-import functions as fun
+import chopin2.functions as fun
 
 def cite():
     """
