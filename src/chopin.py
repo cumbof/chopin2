@@ -156,7 +156,7 @@ def read_params():
                     help = "Print the current chopin.py version and exit" )
     return p.parse_args()
 
-if __name__ == '__main__':
+def chopin():
     # Load command line parameters
     args = read_params()
     fun.printlog( 
@@ -452,3 +452,9 @@ if __name__ == '__main__':
                 for feature in sorted(selected_features):
                     fun.printlog(feature, out=fs)
             fun.printlog( 'Selected features: {}'.format(fs_filepath), verbose=args.verbose )
+
+if __name__ == '__main__':
+    t0 = time.time()
+    chopin()
+    t1 = time.time()
+    info('\nTotal elapsed time {}s\n'.format(int(t1 - t0)))
