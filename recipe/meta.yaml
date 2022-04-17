@@ -1,6 +1,6 @@
 {% set name = "chopin2" %}
 {% set version = "1.0.1" %}
-{% set sha256 = "50f4fdd7b0d3a543b74c71ab41e01e6aec1c1c32c81ccaac2f02df4bb0050ad7" %}
+{% set sha256 = "5b8c7797842bccd3fb35929e33a6331943e364f97137360c3e7fa8c4319a0253" %}
 
 package:
   name: "{{ name|lower }}"
