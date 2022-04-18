@@ -1,0 +1,18 @@
+# Best group size: 14
+# Best accuracy: 100.0
+# Selected Features:
+s__Bifidobacterium_longum
+s__Eubacterium_sp_CAG_38
+s__Mogibacterium_diversum
+s__Odoribacter_laneus
+s__Oscillibacter_sp_57_20
+s__Parabacteroides_distasonis
+s__Parabacteroides_johnsonii
+s__Prevotella_copri
+s__Pseudoflavonifractor_sp_An184
+s__Roseburia_sp_CAG_471
+s__Ruminococcus_bicirculans
+s__Ruminococcus_torques
+s__Ruthenibacterium_lactatiformans
+s__Streptococcus_oralis
+s__Streptococcus_salivarius
