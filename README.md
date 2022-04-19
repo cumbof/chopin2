@@ -70,7 +70,11 @@ List of standard arguments:
 --dataset           -- Path to the dataset file
 --fieldsep          -- Field separator (default ",")
 --training          -- Percentage of observations that will be used to train the model. 
-                       The remaining percentage will be used to test the classification model (default 80)
+                       The remaining percentage will be used to test the classification model (default 80.0)
+--k_folds           -- Number of folds for cross validation.
+                       Cross validate HD models if --k_folds greater than 1
+--auto_folds        -- Automatically estimate the number of folds for cross validation.
+                       It automatically override --k_folds
 --seed              -- Seed for reproducing random sampling of the observations in the dataset 
                        and build both the training and test set (default 0)
 --pickle            -- Path to the pickle file. If specified, "--dataset", "--fieldsep", and "--training" parameters are not used
