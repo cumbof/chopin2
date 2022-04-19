@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.2'
-__date__ = 'Apr 17, 2022'
+__version__ = '1.0.3'
+__date__ = 'Apr 18, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
@@ -40,7 +40,7 @@ def load_optional_modules(pyspark=False, numba=False, verbose=False):
 
 class HDModel(object):
     def __init__(self, datasetName, hashId, trainData, trainLabels, testData, testLabels, D, totalLevel, workdir, levelsdir,
-                 spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1, 
+                 k_fold=0, spark=False, slices=None, master=None, memory=None, gpu=False, tblock=32, nproc=1, 
                  verbose=False, log=None, seed=0):
         """
         Define a HDModel object
@@ -55,6 +55,7 @@ class HDModel(object):
         :totalLevel:int:            Number of HD levels
         :workdir:str:               Path to the working directory
         :levelsdir:str:             Path to the folder in which the HD levels are located
+        :k_fold:int:                Slice n-th for cross validation
         :spark:bool:                Enable the construction of the HD vectors on a Apache Spark distributed environment
         :slices:int:                Number of slices for distributing vectors over the Apache Spark cluster
         :master:str:                Address to the Apache Spark master node
@@ -75,6 +76,7 @@ class HDModel(object):
             return
         self.datasetName = datasetName
         self.hashId = hashId
+        self.k_fold = k_fold
         self.workdir = workdir
         self.levelsdir = levelsdir
         self.trainData = trainData
@@ -124,8 +126,8 @@ class HDModel(object):
             context = SparkContext.getOrCreate( config )
 
         if mode == "train":
-            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}_{}{}'.format( str(self.D), str(self.totalLevel), str(self.hashId),
-                                                                                               '.pkl' if not self.spark else '' ) )
+            train_bufferHVs = os.path.join( self.workdir, 'train_bufferHVs_{}_{}_{}_{}{}'.format(self.D, self.totalLevel, self.hashId, self.k_fold,
+                                                                                                 '.pkl' if not self.spark else '' ) )
             if os.path.exists( train_bufferHVs ):
                 printlog( "Loading Encoded Training Data\n\t{}".format( train_bufferHVs ), verbose=verbose, out=log )
                 if self.spark:
@@ -170,8 +172,8 @@ class HDModel(object):
             else:
                 self.classHVs = oneHvPerClass(self.trainLabels, self.trainHVs, gpu=self.gpu, tblock=self.tblock)
         else:
-            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}_{}{}'.format( str(self.D), str(self.totalLevel), str(self.hashId),
-                                                                                             '.pkl' if not self.spark else '' ) )
+            test_bufferHVs = os.path.join( self.workdir, 'test_bufferHVs_{}_{}_{}_{}{}'.format(self.D, self.totalLevel, self.hashId, self.k_fold,
+                                                                                               '.pkl' if not self.spark else '' ) )
             if os.path.exists( test_bufferHVs ):
                 printlog( "Loading Encoded Testing Data\n\t{}".format( test_bufferHVs ), verbose=verbose, out=log )
                 if self.spark:
@@ -508,7 +510,7 @@ def trainNTimes(classHVs, trainHVs, trainLabels, testHVs, testLabels, retrain, s
         prev_error = error
     return accuracy, retraining
 
-def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, hash_id, workdir='./', levelsdir='./',
+def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datasetName, hash_id, workdir='./', levelsdir='./', k_fold=0,
                  spark=False, slices=None, master=None, memory=None,
                  gpu=False, tblock=32, nproc=1, 
                  verbose=False, log=None, seed=0):
@@ -525,6 +527,7 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
     :hash_id:str:           Unique identifier of the specific run
     :workdir:str:           Path to the working directory
     :levelsdir:str:         Path to the folder in which the HD levels are located
+    :k_fold:int:            Slice n-th for cross validation
     :spark:bool:            Enable the construction of the HD vectors on a Apache Spark distributed environment
     :slices:int:            Number of slices for distributing vectors over the Apache Spark cluster
     :master:str:            Address to the Apache Spark master node
@@ -538,8 +541,8 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
     """
 
     # Initialise HDModel
-    model = HDModel( datasetName, hash_id, trainData, trainLabels, testData, testLables, D, nLevels, workdir, levelsdir,
-                     spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc, 
+    model = HDModel( datasetName, hash_id, trainData, trainLabels, testData, testLables, D, nLevels, workdir, levelsdir, 
+                     k_fold=k_fold, spark=spark, slices=slices, master=master, memory=memory, gpu=gpu, tblock=tblock, nproc=nproc, 
                      verbose=verbose, log=log, seed=seed )
     # Build train HD vectors
     model.buildBufferHVs("train", verbose=verbose, log=log)
@@ -547,13 +550,13 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
     model.buildBufferHVs("test", verbose=verbose, log=log)
     return model
 
-def buildDatasetPKL( filepath, separator=',', training=80, seed=0 ):
+def buildDatasetPKL( filepath, separator=',', training=80.0, seed=0 ):
     """
     Build a PKL object with the training and test datasets
 
     :filepath:str:      Path to the dataset input file
     :separator:str:     Separator used to split fields in the input dataset
-    :training:int:      Percentage of observations used to build the training (and implicitly the test) dataset
+    :training:float:    Percentage of observations used to build the training (and implicitly the test) dataset
     :seed:int:          Seed for reproducing the same training and test datasets
     """
 
@@ -645,7 +648,7 @@ def printlog( message, data=list(), print_threshold=100, end_msg=None, verbose=F
         if out != None:
             out.write( '{}\n'.format( end_msg ) )
 
-def cleanup( group_dir, levels_dir, dimensionality, levels, features_hash, spark=False, skip_levels=False ):
+def cleanup( group_dir, levels_dir, dimensionality, levels, features_hash, k_folds=1, spark=False, skip_levels=False ):
     """
     Remove the HD model
 
@@ -654,20 +657,22 @@ def cleanup( group_dir, levels_dir, dimensionality, levels, features_hash, spark
     :dimensionality:int:        Dimensionality of the hypervectors
     :levels:int:                Number of HD levels
     :features_hash:str:         Unique identifier of the specific run
+    :k_fold:int:                Slice n-th for cross validation
     :spark:bool:                Did you use Apache Spark?
     :skip_levels:bool:          Do not remove the HD levels
     """
     
-    suffix = 'bufferHVs_{}_{}_{}'.format( str(dimensionality), str(levels), str(features_hash) )
-    for prefix in [ 'train', 'test' ]:
-        datapath = os.path.join( group_dir, '{}_{}'.format( prefix, suffix ) )
-        if not spark:
-            datapath = '{}.pkl'.format( datapath )
-        if os.path.exists( datapath ):
-            if os.path.isfile( datapath ):
-                os.unlink( datapath )
-            else:
-                shutil.rmtree( datapath, ignore_errors=True )
+    for k in range(k_folds):
+        suffix = 'bufferHVs_{}_{}_{}_{}'.format(dimensionality, levels, features_hash, k)
+        for prefix in [ 'train', 'test' ]:
+            datapath = os.path.join( group_dir, '{}_{}'.format( prefix, suffix ) )
+            if not spark:
+                datapath = '{}.pkl'.format( datapath )
+            if os.path.exists( datapath ):
+                if os.path.isfile( datapath ):
+                    os.unlink( datapath )
+                else:
+                    shutil.rmtree( datapath, ignore_errors=True )
     if not skip_levels:
         levels_datapath = os.path.join( levels_dir, 'levels_bufferHVs_{}_{}.pkl'.format( dimensionality, levels ) )
         if os.path.exists(levels_datapath):

@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.2'
-__date__ = 'Apr 17, 2022'
+__version__ = '1.0.3'
+__date__ = 'Apr 18, 2022'
 
 import sys
 
@@ -63,10 +63,20 @@ def read_params():
                     default = ',',
                     help = "Field separator" )
     p.add_argument( '--training', 
-                    type = int,
-                    default = 80,
+                    type = float,
+                    default = 80.0,
                     help = ( "Percentage of observations that will be used to train the model. "
                              "The remaining percentage will be used to test the classification model" ) )
+    p.add_argument( '--k_folds', 
+                    type = int,
+                    default = 1,
+                    help = ( "Number of folds for cross validation. "
+                             "Cross validate HD models if --k_folds greater than 1" ) )
+    p.add_argument( '--auto_folds', 
+                    action = 'store_true',
+                    default = False,
+                    help = ( "Automatically estimate the number of folds for cross validation. "
+                             "It automatically override --k_folds" ) )
     p.add_argument( '--seed', 
                     type = int,
                     default = 0,
@@ -157,6 +167,8 @@ def read_params():
     return p.parse_args()
 
 def chopin2():
+    t0 = time.time()
+
     # Load command line parameters
     args = read_params()
     fun.printlog( 
@@ -208,13 +220,22 @@ def chopin2():
             verbose=args.verbose
         )
         pickle.dump( pickledata, open( picklepath, 'wb' ) )
-    
+
     # features:     List of features
     # trainData:    Matrix in which each row is a datapoint of the training set and each column is a feature
     # trainLabels:  List in which each index contains the label for the data in the same row index of the trainData matrix
     # testData:     Matrix in which each row is a datapoint of the testing set and each column is a feature
     # testLabels:   List in which each index contains the label for the data in the same row index of the testData matrix
     if features and trainData and trainLabels and testData and testLabels:
+        if args.k_folds < 1 or args.k_folds > len(trainData):
+            raise Exception("The number of folds under --k_folds must be greater than 1 and lower than the number of observations in the training set")
+        k_folds = args.k_folds
+        if args.auto_folds:
+            # Automatically estimate the number of folds for cross validation
+            N = float(len(trainData)+len(testData))
+            test_perc = (100.0-args.training)/100.0
+            k_folds = math.ceil(N/(N*test_perc))
+
         # Take track of the best selected features 
         last_best_group = None
         last_best_accuracy = 0.0
@@ -329,77 +350,135 @@ def chopin2():
                             verbose=args.verbose,
                             out=run
                         )
+
+                        # Take track of the HD models
+                        # Could be more than 1 in case of cross validation
+                        models = list()
                         t0model = time.time()
-                        model = fun.buildHDModel( trainData_subset, 
-                                                  trainLabels, 
-                                                  testData_subset, 
-                                                  testLabels, 
-                                                  args.dimensionality, 
-                                                  args.levels, 
-                                                  os.path.splitext( os.path.basename( picklepath ) )[0],
-                                                  features_hash,
-                                                  workdir=group_dir,
-                                                  levelsdir=datasetdir,
-                                                  spark=args.spark,
-                                                  slices=args.slices,
-                                                  master=args.master,
-                                                  memory=args.memory,
-                                                  gpu=args.gpu,
-                                                  tblock=args.tblock,
-                                                  nproc=args.nproc,
-                                                  verbose=args.verbose,
-                                                  log=run,
-                                                  seed=args.seed
-                                                )
+
+                        if k_folds > 1:
+                            fun.printlog( 
+                                '\t--k_folds {}'.format(k_folds),
+                                verbose=args.verbose,
+                                out=run
+                            )
+                            # Split training set into k subsets
+                            dataSplits = [(i, i+k_folds) for i in range(0, len(trainData_subset), k_folds)]
+                            for k, validationSet in enumerate(dataSplits):
+                                excludeRange = range(validationSet[0], validationSet[1])
+                                trainData_subset_k = list()
+                                trainLabels_k = list()
+                                for train_idx, train_data in enumerate(trainLabels):
+                                    if train_idx not in excludeRange:
+                                        trainData_subset_k.append(trainData_subset[train_idx])
+                                        trainLabels_k.append(trainLabels[train_idx])
+                                # Build the HD model
+                                model = fun.buildHDModel( trainData_subset_k, 
+                                                          trainLabels_k, 
+                                                          testData_subset, 
+                                                          testLabels, 
+                                                          args.dimensionality, 
+                                                          args.levels, 
+                                                          os.path.splitext( os.path.basename( picklepath ) )[0],
+                                                          features_hash,
+                                                          workdir=group_dir,
+                                                          levelsdir=datasetdir,
+                                                          k_fold=k,
+                                                          spark=args.spark,
+                                                          slices=args.slices,
+                                                          master=args.master,
+                                                          memory=args.memory,
+                                                          gpu=args.gpu,
+                                                          tblock=args.tblock,
+                                                          nproc=args.nproc,
+                                                          verbose=(args.verbose and k_folds == 1),
+                                                          log=run,
+                                                          seed=args.seed
+                                                        )
+                                models.append(model)
+
+                        else:
+                            # Build the HD model
+                            model = fun.buildHDModel( trainData_subset, 
+                                                      trainLabels, 
+                                                      testData_subset, 
+                                                      testLabels, 
+                                                      args.dimensionality, 
+                                                      args.levels, 
+                                                      os.path.splitext( os.path.basename( picklepath ) )[0],
+                                                      features_hash,
+                                                      workdir=group_dir,
+                                                      levelsdir=datasetdir,
+                                                      spark=args.spark,
+                                                      slices=args.slices,
+                                                      master=args.master,
+                                                      memory=args.memory,
+                                                      gpu=args.gpu,
+                                                      tblock=args.tblock,
+                                                      nproc=args.nproc,
+                                                      verbose=(args.verbose and k_folds == 1),
+                                                      log=run,
+                                                      seed=args.seed
+                                                    )
+                            models.append(model)
+                        
                         t1model = time.time()
                         fun.printlog( 
-                            'Total elapsed time (model) {}s\nRetraining the HD model {} times at most'.format( int( t1model - t0model ), args.retrain ),
+                            'Total elapsed time (model/s) {}s\nRetraining the HD model/s {} times at most'.format( int( t1model - t0model ), args.retrain ),
                             verbose=args.verbose,
                             out=run
                         )
                         # Retrains the HD model n times and after each retraining iteration evaluates the accuracy of the model with the testing set
+                        accuracies = list()
+                        retrainings = list()
                         t0acc = time.time()
-                        accuracy, retraining = fun.trainNTimes( model.classHVs, 
-                                                                model.trainHVs, 
-                                                                model.trainLabels, 
-                                                                model.testHVs, 
-                                                                model.testLabels, 
-                                                                args.retrain,
-                                                                stop=args.stop,
-                                                                spark=args.spark,
-                                                                slices=args.slices,
-                                                                master=args.master,
-                                                                memory=args.memory,
-                                                                dataset=os.path.splitext( os.path.basename( picklepath ) )[0],
-                                                                verbose=args.verbose,
-                                                                log=run
-                                                              )
+                        for model in models:
+                            accuracy, retraining = fun.trainNTimes( model.classHVs, 
+                                                                    model.trainHVs, 
+                                                                    model.trainLabels, 
+                                                                    model.testHVs, 
+                                                                    model.testLabels, 
+                                                                    args.retrain,
+                                                                    stop=args.stop,
+                                                                    spark=args.spark,
+                                                                    slices=args.slices,
+                                                                    master=args.master,
+                                                                    memory=args.memory,
+                                                                    dataset=os.path.splitext( os.path.basename( picklepath ) )[0],
+                                                                    verbose=(args.verbose and k_folds == 1),
+                                                                    log=run
+                                                                  )
+                            # Get best accuracy
+                            best = max(accuracy)
+                            accuracies.append(best)
+                            retrainings.append(retraining[accuracy.index(best)])
                         t1acc = time.time()
-                        best = max( accuracy )
+                        avg_accuracy = sum(accuracies)/len(accuracies)
+                        avg_retraining = math.floor(sum(retrainings)/len(retrainings))
                         message = 'Total elapsed time (accuracy) {}s\n'.format( int( t1acc - t0acc ) )
-                        message += 'The maximum reached accuracy is {} after {} retrainings\n'.format( best, retraining[accuracy.index(best)] )
+                        message += 'The maximum reached accuracy is {} after {} retrainings\n'.format( avg_accuracy, avg_retraining )
                         message += 'Stopped after {} retraining iterations\n'.format( len(accuracy)-1 )
                         fun.printlog( message, verbose=args.verbose, out=run )
                         # Keep track of the best accuracy for the current group size
                         if group_size in mapping:
-                            if best > mapping[ group_size ][ 0 ][ "accuracy" ]:
-                                threshold = best-(best*args.accuracy_uncertainty_perc)/100.0                                
+                            if avg_accuracy > mapping[ group_size ][ 0 ][ "accuracy" ]:
+                                threshold = avg_accuracy-(avg_accuracy*args.accuracy_uncertainty_perc)/100.0                                
                                 mapping[ group_size ] = sorted( [ run for run in mapping[ group_size ] if run["accuracy"] >= threshold ], 
                                                                 key=lambda run: run["accuracy"], 
                                                                 reverse=True )
                                 mapping[ group_size ].insert( 0,
                                     {
-                                        "accuracy": best,
-                                        "retraining": retraining[accuracy.index(best)],
+                                        "accuracy": avg_accuracy,
+                                        "retraining": avg_retraining,
                                         "run": features_hash,
                                         "features": comb_features
                                     }
                                 )
-                            elif mapping[ group_size ][ 0 ][ "accuracy" ] == best:
+                            elif mapping[ group_size ][ 0 ][ "accuracy" ] == avg_accuracy:
                                 mapping[ group_size ].append(
                                     {
-                                        "accuracy": best,
-                                        "retraining": retraining[accuracy.index(best)],
+                                        "accuracy": avg_accuracy,
+                                        "retraining": avg_retraining,
                                         "run": features_hash,
                                         "features": comb_features
                                     }
@@ -407,8 +486,8 @@ def chopin2():
                         else:
                             mapping[ group_size ] = [
                                 {
-                                    "accuracy": best,
-                                    "retraining": retraining[accuracy.index(best)],
+                                    "accuracy": avg_accuracy,
+                                    "retraining": avg_retraining,
                                     "run": features_hash,
                                     "features": comb_features
                                 }
@@ -418,7 +497,7 @@ def chopin2():
                             run.close()
                         # Cleanup
                         if args.cleanup:
-                            fun.cleanup( group_dir, datasetdir, args.dimensionality, args.levels, features_hash, spark=args.spark, skip_levels=True )
+                            fun.cleanup( group_dir, datasetdir, args.dimensionality, args.levels, features_hash, k_folds=k_folds, spark=args.spark, skip_levels=True )
                         combinations_counter += 1
 
                     # Take track of the best result
@@ -453,8 +532,8 @@ def chopin2():
                     fun.printlog(feature, out=fs)
             fun.printlog( 'Selected features: {}'.format(fs_filepath), verbose=args.verbose )
 
-if __name__ == '__main__':
-    t0 = time.time()
-    chopin2()
     t1 = time.time()
-    info('\nTotal elapsed time {}s\n'.format(int(t1 - t0)))
+    fun.printlog('\nTotal elapsed time {}s'.format(int(t1 - t0)), verbose=args.verbose)
+
+if __name__ == '__main__':
+    chopin2()
