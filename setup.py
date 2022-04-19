@@ -5,7 +5,7 @@ if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and  sys.version_info[1]
                      .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
 setuptools.setup(name='chopin2',
-                 version='1.0.2',
+                 version='1.0.3',
                  author='Fabio Cumbo',
                  author_email='fabio.cumbo@gmail.com',
                  url='http://github.com/fabio-cumbo/chopin2',
