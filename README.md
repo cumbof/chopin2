@@ -40,25 +40,25 @@ Once installed, you are ready to start playing with `chopin2`.
 
 Try running the following command to run `chopin2` on the `isolet` dataset:
 ```
-python chopin2.py --dimensionality 10000 \
-                 --levels 100 \
-                 --retrain 10 \
-                 --pickle ../dataset/isolet/isolet.pkl \
-                 --verbose
+chopin2 --dimensionality 10000 \
+        --levels 100 \
+        --retrain 10 \
+        --pickle ../dataset/isolet/isolet.pkl \
+        --verbose
 ```
 
 In order to run it on Spark, other arguments must be specified:
 ```
-python chopin2.py --dimensionality 10000 \
-                 --levels 100 \
-                 --retrain 10 \
-                 --pickle ../dataset/isolet/isolet.pkl \
-                 --dump \
-                 --spark \
-                 --slices 10 \
-                 --master local \
-                 --memory 2048m \
-                 --verbose
+chopin2 --dimensionality 10000 \
+        --levels 100 \
+        --retrain 10 \
+        --pickle ../dataset/isolet/isolet.pkl \
+        --dump \
+        --spark \
+        --slices 10 \
+        --master local \
+        --memory 2048m \
+        --verbose
 ```
 
 List of standard arguments:
