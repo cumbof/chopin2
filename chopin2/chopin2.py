@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.4'
-__date__ = 'Apr 19, 2022'
+__version__ = '1.0.5'
+__date__ = 'Apr 20, 2022'
 
 import sys
 
@@ -181,38 +181,32 @@ def chopin2():
     
     if args.pickle:
         fun.printlog( 
-            'Loading features, trainData, trainLabels, testData, and testLabels from the pickle file',
+            'Loading features, data, and labels from the pickle file',
             verbose=args.verbose
         )
         # If the pickle file already exists
         picklepath = args.pickle
-        # Load trainData, trainLabels, testData, testLabels
-        dataset = pickle.load( open( picklepath, 'rb' ) )
-        if len( dataset ) > 4:
-            # Define features, trainData, trainLabels, testData, and testLabels
-            features, trainData, trainLabels, testData, testLabels = dataset
+        dataset = pickle.load(open(picklepath, 'rb'))
+        if len(dataset) > 4:
+            # Define features, allData, and allLabels
+            features, allData, allLabels = dataset
         else:
             # Enable retro-compatibility for datasets with no features
             fun.printlog( 
                 '\tFeatures not found! They will be initialised as incremental numbers',
                 verbose=args.verbose
             )
-            trainData, trainLabels, testData, testLabels = dataset
-            features = [ str(f) for f in range( len( trainData[ 0 ] ) ) ]
+            allData, allLabels = dataset
+            features = [str(f) for f in range(len(trainData[0]))]
     else:
         fun.printlog( 
-            'Loading dataset\n\tDataset: {}\n\tTraining percentage: {}\n\tSeed: {}'.format( args.dataset,
-                                                                                            args.training,
-                                                                                            args.seed ),
+            'Loading dataset: {}'.format(args.dataset),
             verbose=args.verbose
         )
         # Otherwise, split the dataset into training and test sets
-        features, trainData, trainLabels, testData, testLabels = fun.buildDatasetPKL( args.dataset, 
-                                                                                      separator=args.fieldsep,
-                                                                                      training=args.training, 
-                                                                                      seed=args.seed )
+        features, allData, allLabels = fun.buildDatasetPKL(args.dataset, separator=args.fieldsep)
         # Dump pre-processed dataset to a pickle file
-        pickledata = ( features, trainData, trainLabels, testData, testLabels )
+        pickledata = ( features, allData, allLabels )
         picklepath = os.path.join( os.path.dirname( args.dataset ), 
                                    '{}.pkl'.format( os.path.splitext( os.path.basename( args.dataset ) )[ 0 ] ) )
         fun.printlog( 
@@ -221,20 +215,19 @@ def chopin2():
         )
         pickle.dump( pickledata, open( picklepath, 'wb' ) )
 
-    # features:     List of features
-    # trainData:    Matrix in which each row is a datapoint of the training set and each column is a feature
-    # trainLabels:  List in which each index contains the label for the data in the same row index of the trainData matrix
-    # testData:     Matrix in which each row is a datapoint of the testing set and each column is a feature
-    # testLabels:   List in which each index contains the label for the data in the same row index of the testData matrix
-    if features and trainData and trainLabels and testData and testLabels:
-        if args.k_folds < 1 or args.k_folds > len(trainData):
+    if features and allData and allLabels:
+        if args.k_folds < 1 or args.k_folds > len(allData):
             raise Exception("The number of folds under --k_folds must be greater than 1 and lower than the number of observations in the training set")
         k_folds = args.k_folds
         if args.auto_folds:
             # Automatically estimate the number of folds for cross validation
-            N = float(len(trainData)+len(testData))
+            N = float(len(allData))
             test_perc = (100.0-args.training)/100.0
             k_folds = math.ceil(N/(N*test_perc))
+        
+        if k_folds == 1:
+            # Prepare training and test dataset with percentage split
+            trainData, trainLabels, testData, testLabels = fun.percentage_split(allData, allLabels, training=args.training, seed=args.seed)
 
         # Take track of the best selected features 
         last_best_group = None
@@ -338,12 +331,6 @@ def chopin2():
                         )
                         # Features positions
                         features_idx = [ ( feature in comb_features ) for feature in features ]
-                        # Reshape trainData and testData if required
-                        trainData_subset = trainData
-                        testData_subset = testData
-                        if len( comb_features ) < len( features ):
-                            trainData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in trainData ]
-                            testData_subset = [ [ value for index, value in enumerate( obs ) if features_idx[ index ] ] for obs in testData ]
                         # Encodes the training data, testing data, and performs the initial training of the HD model
                         fun.printlog( 
                             'Building the HD model\n\t--dimensionality {}\n\t--levels {}'.format( args.dimensionality, args.levels ),
@@ -355,26 +342,29 @@ def chopin2():
                         # Could be more than 1 in case of cross validation
                         models = list()
                         t0model = time.time()
-
                         if k_folds > 1:
                             fun.printlog( 
                                 '\t--k_folds {}'.format(k_folds),
                                 verbose=args.verbose,
                                 out=run
                             )
+                            # Reshape dataset if required
+                            allData_subset = allData
+                            if len(comb_features) < len(features):
+                                allData_subset = [[value for index, value in enumerate(obs) if features_idx[index]] for obs in allData]
                             # Split training set into k subsets
-                            dataSplit = [trainData_subset[i::k_folds] for i in range(k_folds)]
-                            for k, validationSet in enumerate(dataSplit):
-                                trainData_subset_k = list()
-                                trainLabels_k = list()
-                                for train_idx, train_subdata in enumerate(trainData_subset):
-                                    if train_subdata not in validationSet:
-                                        trainData_subset_k.append(train_subdata)
-                                        trainLabels_k.append(trainLabels[train_idx])
+                            dataSplit = [(allData_subset[i::k_folds], allLabels[i::k_folds]) for i in range(k_folds)]
+                            for k, (testData, testLabels) in enumerate(dataSplit):
+                                trainData = list()
+                                trainLabels = list()
+                                for idx, subdata in enumerate(allData_subset):
+                                    if subdata not in testData:
+                                        trainData.append(subdata)
+                                        trainLabels.append(allLabels[idx])
                                 # Build the HD model
-                                model = fun.buildHDModel( trainData_subset_k, 
-                                                          trainLabels_k, 
-                                                          testData_subset, 
+                                model = fun.buildHDModel( trainData, 
+                                                          trainLabels, 
+                                                          testData, 
                                                           testLabels, 
                                                           args.dimensionality, 
                                                           args.levels, 
@@ -397,6 +387,13 @@ def chopin2():
                                 models.append(model)
 
                         else:
+                            # Use the precomputed training and test set with percentage split
+                            # Reshape dataset if required
+                            trainData_subset = trainData
+                            testData_subset = testData
+                            if len(comb_features) < len(features):
+                                trainData_subset = [[value for index, value in enumerate(obs) if features_idx[index]] for obs in trainData]
+                                testData_subset = [[value for index, value in enumerate(obs) if features_idx[index]] for obs in testData]
                             # Build the HD model
                             model = fun.buildHDModel( trainData_subset, 
                                                       trainLabels, 

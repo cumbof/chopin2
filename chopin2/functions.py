@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.4'
-__date__ = 'Apr 19, 2022'
+__version__ = '1.0.5'
+__date__ = 'Apr 20, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
@@ -550,7 +550,7 @@ def buildHDModel(trainData, trainLabels, testData, testLables, D, nLevels, datas
     model.buildBufferHVs("test", verbose=verbose, log=log)
     return model
 
-def buildDatasetPKL( filepath, separator=',', training=80.0, seed=0 ):
+def buildDatasetPKL( filepath, separator=',' ):
     """
     Build a PKL object with the training and test datasets
 
@@ -560,8 +560,6 @@ def buildDatasetPKL( filepath, separator=',', training=80.0, seed=0 ):
     :seed:int:          Seed for reproducing the same training and test datasets
     """
 
-    # Set a seed for the random sampling of the dataset
-    random.seed( seed )
     # List of features
     features = list()
     # List of classes for each observation
@@ -578,36 +576,47 @@ def buildDatasetPKL( filepath, separator=',', training=80.0, seed=0 ):
                     line_split = line.split( separator )
                     content.append( [ float( value ) for value in line_split[ 1: -1 ] ] )
                     classes.append( line_split[ -1 ] )
-    trainData = list()
+    return features, content, classes
+
+def percentage_split( data, classes, training=80.0, seed=0 ):
+    """
+    Build training and test sets with percentage split
+
+    :data:list:         List with data
+    :classes:list:      List of labels for each observation in data
+    :training:float:    Percentage of observations used to build the training (and implicitly the test) dataset
+    :seed:int:          Seed for reproducing the same training and test datasets
+    """
+
+    # Set a seed for the random sampling of the dataset
+    random.seed( seed )
+
+    trainData, = list()
     trainLabels = list()
     testData = list()
     testLabels = list()
-    for classid in list( set( classes ) ):
-        training_amount = int( ( float( classes.count( classid ) ) * float( training ) ) / 100.0 )
+    for classid in list(set(classes)):
+        training_amount = int((float(classes.count(classid))*float(training))/100.0)
         # Create the training set by random sampling
-        indices = [ pos for pos, val in enumerate(classes) if val == classid ]
-        training_indices = random.sample( indices, training_amount )
-        trainData.extend( [ content[ idx ] for idx in training_indices ] )
-        trainLabels.extend( [ classid ]*len( training_indices ) )
-        testData.extend( [ content[ idx ] for idx in indices if idx not in training_indices ] )
-        testLabels.extend( [ classid ]*( len( indices )-len( training_indices ) ) )
-    return features, trainData, trainLabels, testData, testLabels
+        indices = [pos for pos, val in enumerate(classes) if val == classid]
+        training_indices = random.sample(indices, training_amount)
+        trainData.extend([data[idx] for idx in training_indices])
+        trainLabels.extend([classid]*len(training_indices))
+        testData.extend([data[idx] for idx in indices if idx not in training_indices])
+        testLabels.extend([classid]*(len(indices)-len(training_indices)))
+    return trainData, trainLabels, testData, testLabels
 
-def buildDatasetFLAT( trainData, trainLabels, testData, testLabels, features, outpath, sep=',' ):
+def buildDatasetFLAT( data, labels, features, outpath, sep=',' ):
     """
     Build a dataset starting from the PKL object with training and test data
 
-    :trainData:list:        Training dataset
-    :trainLabels:list:      Class labels of the training dataset
-    :testData:list:         Test dataset
-    :testLabels:list:       Class labels of the test dataset
+    :data:list:             Training dataset
+    :labels:list:           Class labels of the training dataset
     :features:list:         Feature IDs
     :outpath:str:           Path to the output dataset file
     :sep:str:               Separator used to split fields in the output dataset
     """
 
-    data = trainData + testData
-    labels = trainLabels + testLabels
     for observation in range( len( data ) ):
         data[ observation ].append( labels[ observation ] )
     features.append( 'class' )
