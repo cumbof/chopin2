@@ -1,35 +1,41 @@
 {% set name = "chopin2" %}
 {% set version = "1.0.4" %}
-{% set sha256 = "8f9537e97ff9bd2e199dd6da39ba37d0076a385cb1187bef89da4fee12fd5911" %}
+{% set sha256 = "56c41c97f782fffeabc04360f2fbd5ed6b630382114b2e63f0fab3d8d19126cb" %}
 
 package:
   name: "{{ name|lower }}"
   version: "{{ version }}"
 
 source:
-  url: https://github.com/fabio-cumbo/{{ name }}/archive/{{ version }}.tar.gz
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
   sha256: "{{ sha256 }}"
 
 build:
   number: 0
-  skip: Ture  # [py<38 or win]
+  noarch: python
+  entry_points:
+    - chopin2=chopin2.chopin2:chopin2
   script: "{{ PYTHON }} -m pip install . --ignore-installed --no-deps -vv"
 
 requirements:
   host:
-    - python
+    - python >=3.8
     - pip
     - setuptools
-
   run:
-    - python
+    - python >=3.8
     - numpy >=1.16.3
     - pyspark >=2.40
     - numba >=0.51.2
 
 test:
+  imports:
+    - chopin2
   commands:
+    - pip check
     - chopin2 --version
+  requires:
+    - pip
 
 about:
   home: https://github.com/fabio-cumbo/chopin2
