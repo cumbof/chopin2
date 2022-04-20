@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.3'
-__date__ = 'Apr 18, 2022'
+__version__ = '1.0.4'
+__date__ = 'Apr 19, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np

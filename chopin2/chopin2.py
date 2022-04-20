@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.3'
-__date__ = 'Apr 18, 2022'
+__version__ = '1.0.4'
+__date__ = 'Apr 19, 2022'
 
 import sys
 
@@ -363,14 +363,13 @@ def chopin2():
                                 out=run
                             )
                             # Split training set into k subsets
-                            dataSplits = [(i, i+k_folds) for i in range(0, len(trainData_subset), k_folds)]
-                            for k, validationSet in enumerate(dataSplits):
-                                excludeRange = range(validationSet[0], validationSet[1])
+                            dataSplit = [trainData_subset[i::k_folds] for i in range(k_folds)]
+                            for k, validationSet in enumerate(dataSplit):
                                 trainData_subset_k = list()
                                 trainLabels_k = list()
-                                for train_idx, train_data in enumerate(trainLabels):
-                                    if train_idx not in excludeRange:
-                                        trainData_subset_k.append(trainData_subset[train_idx])
+                                for train_idx, train_subdata in enumerate(trainData_subset):
+                                    if train_subdata not in validationSet:
+                                        trainData_subset_k.append(train_subdata)
                                         trainLabels_k.append(trainLabels[train_idx])
                                 # Build the HD model
                                 model = fun.buildHDModel( trainData_subset_k, 
