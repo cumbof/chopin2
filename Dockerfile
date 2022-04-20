@@ -32,15 +32,8 @@ RUN curl -s https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
     python get-pip.py --force-reinstall && \
     rm get-pip.py
 
-# Download chopin2
-RUN mkdir -p /home/git && cd /home/git && \
-    git clone https://github.com/fabio-cumbo/chopin2 && \
-    cd /home/git/chopin2/src && \
-    chmod +x chopin2.py functions.py
-# Install Python dependencies
-RUN pip install -r /home/git/chopin2/src/requirements.txt --ignore-installed
-# Add chopin2 to PATH
-ENV PATH="${PATH}:/home/git/chopin2/src"
+# Install chopin2 with pip
+RUN pip install chopin2
 
 WORKDIR /home
 ENTRYPOINT /bin/bash
