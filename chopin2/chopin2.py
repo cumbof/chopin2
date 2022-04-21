@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.5'
-__date__ = 'Apr 20, 2022'
+__version__ = '1.0.6'
+__date__ = 'Apr 21, 2022'
 
 import sys
 
@@ -21,7 +21,7 @@ import chopin2.functions as fun
 def cite():
     """
     Custom argparse action to print citations and exit
-    Usage: python chopin2.py --cite
+    Usage: chopin2 --cite
     """
     
     class citeAction(ap.Action):
@@ -36,19 +36,40 @@ def cite():
             parser.exit()
     return citeAction
 
+def number(typev, minv=None, maxv=None):
+    """
+    Take full control of input numeric types by defining custom intervals
+    """
+
+    def type_func(value):
+        """
+        Test data type and ranges on the input value
+        """
+
+        try:
+            value = typev(value)
+            if minv and value < minv:
+                raise ap.ArgumentTypeError("Minimum value is {}".format(minv))
+            if maxv and value > maxv:
+                raise ap.ArgumentTypeError("Maximum value is {}".format(maxv))
+            return value
+        except:
+            raise ap.ArgumentTypeError("Input value must be {}".format(typev))
+
+    return type_func
+
 def read_params():
-    p = ap.ArgumentParser( description = ( "The chopin2.py script builds and tests a Hyperdimensional Computing "
-                                           "classification model on a input dataset." ),
+    p = ap.ArgumentParser( description = ( "Supervised Classification with Hyperdimensional Computing." ),
                            formatter_class = ap.ArgumentDefaultsHelpFormatter )
     p.add_argument( '--dimensionality', 
-                    type = int,
+                    type = number(int, minv=10),
                     default = 10000,
                     help = "Dimensionality of the HD model" )
     p.add_argument( '--levels', 
-                    type = int,
+                    type = number(int, minv=2),
                     help = "Number of level hypervectors" )
     p.add_argument( '--retrain', 
-                    type = int,
+                    type = number(int, minv=0),
                     default = 0,
                     help = "Number of retraining iterations" )
     p.add_argument( '--stop',
@@ -62,29 +83,23 @@ def read_params():
                     type = str,
                     default = ',',
                     help = "Field separator" )
-    p.add_argument( '--training', 
-                    type = float,
-                    default = 80.0,
+    p.add_argument( '--psplit_training', 
+                    type = number(float, maxv=100.0),
+                    default = 0.0,
                     help = ( "Percentage of observations that will be used to train the model. "
                              "The remaining percentage will be used to test the classification model" ) )
-    p.add_argument( '--k_folds', 
-                    type = int,
-                    default = 1,
-                    help = ( "Number of folds for cross validation. "
-                             "Cross validate HD models if --k_folds greater than 1" ) )
-    p.add_argument( '--auto_folds', 
-                    action = 'store_true',
-                    default = False,
-                    help = ( "Automatically estimate the number of folds for cross validation. "
-                             "It automatically override --k_folds" ) )
-    p.add_argument( '--seed', 
-                    type = int,
+    p.add_argument( '--crossv_k', 
+                    type = number(int, minv=2),
                     default = 0,
-                    help = ( "Seed for reproducing random sampling of the observations in the dataset "
-                             "and build both the training and test set" ) )
+                    help = ( "Number of folds for cross validation. "
+                             "Cross validate HD models if --crossv_k greater than 1" ) )
+    p.add_argument( '--seed', 
+                    type = number(int),
+                    default = 0,
+                    help = "Random seed" )
     p.add_argument( '--pickle', 
                     type = str,
-                    help = "Path to the pickle file. If specified, \"--dataset\", \"--fieldsep\", and \"--training\" parameters are not used" )
+                    help = "Path to the pickle file. If specified, \"--dataset\" and \"--fieldsep\" parameters are not used" )
     p.add_argument( '--features', 
                     type = str,
                     help = "Path to a file with a single column containing the whole set or a subset of feature" )
@@ -94,7 +109,7 @@ def read_params():
                     help = ( "This triggers the backward variable selection method for the identification of the most significant features. " 
                              "Warning: computationally intense!") )
     p.add_argument( '--group_min', 
-                    type = int,
+                    type = number(int, minv=1),
                     default = 1,
                     help = "Minimum number of features among those specified with the --features argument" )
     p.add_argument( '--dump', 
@@ -110,11 +125,11 @@ def read_params():
                     default = False,
                     help = "Do not delete the level hypervectors. It works in conjunction with --cleanup only" )
     p.add_argument( '--accuracy_threshold', 
-                    type = float,
+                    type = number(float, minv=0.0, maxv=100.0),
                     default = 60.0,
                     help = "Stop the execution if the best accuracy achieved during the previous group of runs is lower than this number" )
     p.add_argument( '--accuracy_uncertainty_perc', 
-                    type = float,
+                    type = number(float, minv=0.0, maxv=100.0),
                     default = 5.0,
                     help = ( "Take a run into account even if its accuracy is lower than the best accuracy achieved in the same group minus "
                              "its \"accuracy_uncertainty_perc\" percent" ) )
@@ -124,7 +139,7 @@ def read_params():
                     default = False,
                     help = "Build the classification model in a Apache Spark distributed environment" )
     p.add_argument( '--slices', 
-                    type = int,
+                    type = number(int, minv=0),
                     help = ( "Number of slices in case --spark argument is enabled. "
                              "This argument is ignored if --gpu is enabled" ) )
     p.add_argument( '--master', 
@@ -141,13 +156,13 @@ def read_params():
                     help = ( "Build the classification model on an NVidia powered GPU. "
                              "This argument is ignored if --spark is specified" ) )
     p.add_argument( '--tblock', 
-                    type = int,
+                    type = number(int, minv=0),
                     default = 32,
                     help = ( "Number of threads per block in case --gpu argument is enabled. "
                              "This argument is ignored if --spark is enabled" ) )
     # Standard multiprocessing
     p.add_argument( '--nproc', 
-                    type = int,
+                    type = number(int, minv=1, maxv=os.cpu_count()),
                     default = 1,
                     help = ( "Number of parallel jobs for the creation of the HD model. "
                              "This argument is ignored if --spark is enabled" ) )
@@ -216,18 +231,24 @@ def chopin2():
         pickle.dump( pickledata, open( picklepath, 'wb' ) )
 
     if features and allData and allLabels:
-        if args.k_folds < 1 or args.k_folds > len(allData):
-            raise Exception("The number of folds under --k_folds must be greater than 1 and lower than the number of observations in the training set")
-        k_folds = args.k_folds
-        if args.auto_folds:
-            # Automatically estimate the number of folds for cross validation
-            N = float(len(allData))
-            test_perc = (100.0-args.training)/100.0
-            k_folds = math.ceil(N/(N*test_perc))
-        
-        if k_folds == 1:
+        if args.psplit_training == 0.0 and args.crossv_k == 0:
+            raise Exception("Please specify one of the following arguments: [\"--psplit_training\", \"--crossv_k\"]")
+
+        if args.psplit_training > 0.0:
             # Prepare training and test dataset with percentage split
-            trainData, trainLabels, testData, testLabels = fun.percentage_split(allData, allLabels, training=args.training, seed=args.seed)
+            trainData, trainLabels, testData, testLabels = fun.percentage_split(allData, allLabels, training=args.psplit_training, seed=args.seed)
+        elif args.crossv_k > 0:
+            # Split training set into k subsets
+            subsets = list()
+            dataSplit = [(allData[i::args.crossv_k], allLabels[i::args.crossv_k]) for i in range(args.crossv_k)]
+            for testData, testLabels in dataSplit:
+                trainData = list()
+                trainLabels = list()
+                for idx, subdata in enumerate(allData):
+                    if subdata not in testData:
+                        trainData.append(subdata)
+                        trainLabels.append(allLabels[idx])
+                subsets.append( (trainData, trainLabels, testData, testLabels) )
 
         # Take track of the best selected features 
         last_best_group = None
@@ -342,33 +363,31 @@ def chopin2():
                         # Could be more than 1 in case of cross validation
                         models = list()
                         t0model = time.time()
-                        if k_folds > 1:
+                        
+                        if args.crossv_k > 0:
+                            # Run k-fold cross-validation
                             fun.printlog( 
-                                '\t--k_folds {}'.format(k_folds),
+                                '\t--crossv_k {}'.format(args.crossv_k),
                                 verbose=args.verbose,
                                 out=run
                             )
-                            # Reshape dataset if required
-                            allData_subset = allData
-                            if len(comb_features) < len(features):
-                                allData_subset = [[value for index, value in enumerate(obs) if features_idx[index]] for obs in allData]
-                            # Split training set into k subsets
-                            dataSplit = [(allData_subset[i::k_folds], allLabels[i::k_folds]) for i in range(k_folds)]
-                            for k, (testData, testLabels) in enumerate(dataSplit):
-                                trainData = list()
-                                trainLabels = list()
-                                for idx, subdata in enumerate(allData_subset):
-                                    if subdata not in testData:
-                                        trainData.append(subdata)
-                                        trainLabels.append(allLabels[idx])
+                            # Iterate over k subsets
+                            for k, (trainData, trainLabels, testData, testLabels) in enumerate(subsets):
+                                # Reshape dataset by removing features if needed
+                                trainData_subset = trainData
+                                testData_subset = testData
+                                if len(comb_features) < len(features):
+                                    trainData_subset = [[value for index, value in enumerate(obs) if features_idx[index]] for obs in trainData]
+                                    testData_subset = [[value for index, value in enumerate(obs) if features_idx[index]] for obs in testData]
+
                                 # Build the HD model
-                                model = fun.buildHDModel( trainData, 
+                                model = fun.buildHDModel( trainData_subset, 
                                                           trainLabels, 
-                                                          testData, 
+                                                          testData_subset, 
                                                           testLabels, 
                                                           args.dimensionality, 
                                                           args.levels, 
-                                                          os.path.splitext( os.path.basename( picklepath ) )[0],
+                                                          os.path.splitext(os.path.basename(picklepath))[0],
                                                           features_hash,
                                                           workdir=group_dir,
                                                           levelsdir=datasetdir,
@@ -380,14 +399,18 @@ def chopin2():
                                                           gpu=args.gpu,
                                                           tblock=args.tblock,
                                                           nproc=args.nproc,
-                                                          verbose=(args.verbose and k_folds == 1),
+                                                          verbose=False,
                                                           log=run,
                                                           seed=args.seed
                                                         )
                                 models.append(model)
-
                         else:
-                            # Use the precomputed training and test set with percentage split
+                            # Run k-fold cross-validation
+                            fun.printlog( 
+                                '\t--psplit_training {}'.format(args.psplit_training),
+                                verbose=args.verbose,
+                                out=run
+                            )
                             # Reshape dataset if required
                             trainData_subset = trainData
                             testData_subset = testData
@@ -401,7 +424,7 @@ def chopin2():
                                                       testLabels, 
                                                       args.dimensionality, 
                                                       args.levels, 
-                                                      os.path.splitext( os.path.basename( picklepath ) )[0],
+                                                      os.path.splitext(os.path.basename(picklepath))[0],
                                                       features_hash,
                                                       workdir=group_dir,
                                                       levelsdir=datasetdir,
@@ -412,7 +435,7 @@ def chopin2():
                                                       gpu=args.gpu,
                                                       tblock=args.tblock,
                                                       nproc=args.nproc,
-                                                      verbose=(args.verbose and k_folds == 1),
+                                                      verbose=args.verbose,
                                                       log=run,
                                                       seed=args.seed
                                                     )
@@ -420,7 +443,7 @@ def chopin2():
                         
                         t1model = time.time()
                         fun.printlog( 
-                            'Total elapsed time (model/s) {}s\nRetraining the HD model/s {} times at most'.format( int( t1model - t0model ), args.retrain ),
+                            'Total elapsed time (building) {}s'.format(int(t1model-t0model)),
                             verbose=args.verbose,
                             out=run
                         )
@@ -440,8 +463,8 @@ def chopin2():
                                                                     slices=args.slices,
                                                                     master=args.master,
                                                                     memory=args.memory,
-                                                                    dataset=os.path.splitext( os.path.basename( picklepath ) )[0],
-                                                                    verbose=(args.verbose and k_folds == 1),
+                                                                    dataset=os.path.splitext(os.path.basename(picklepath))[0],
+                                                                    verbose=args.verbose and args.psplit_training>0.0,
                                                                     log=run
                                                                   )
                             # Get best accuracy
@@ -451,7 +474,7 @@ def chopin2():
                         t1acc = time.time()
                         avg_accuracy = sum(accuracies)/len(accuracies)
                         avg_retraining = math.floor(sum(retrainings)/len(retrainings))
-                        message = 'Total elapsed time (accuracy) {}s\n'.format( int( t1acc - t0acc ) )
+                        message = 'Total elapsed time (testing) {}s\n'.format( int( t1acc - t0acc ) )
                         message += 'The maximum reached accuracy is {} after {} retrainings\n'.format( avg_accuracy, avg_retraining )
                         message += 'Stopped after {} retraining iterations\n'.format( len(accuracy)-1 )
                         fun.printlog( message, verbose=args.verbose, out=run )
@@ -493,7 +516,7 @@ def chopin2():
                             run.close()
                         # Cleanup
                         if args.cleanup:
-                            fun.cleanup( group_dir, datasetdir, args.dimensionality, args.levels, features_hash, k_folds=k_folds, spark=args.spark, skip_levels=True )
+                            fun.cleanup( group_dir, datasetdir, args.dimensionality, args.levels, features_hash, k_folds=args.crossv_k, spark=args.spark, skip_levels=True )
                         combinations_counter += 1
 
                     # Take track of the best result
@@ -529,7 +552,7 @@ def chopin2():
             fun.printlog( 'Selected features: {}'.format(fs_filepath), verbose=args.verbose )
 
     t1 = time.time()
-    fun.printlog('\nTotal elapsed time {}s'.format(int(t1 - t0)), verbose=args.verbose)
+    fun.printlog('Total elapsed time {}s'.format(int(t1 - t0)), verbose=args.verbose)
 
 if __name__ == '__main__':
     chopin2()

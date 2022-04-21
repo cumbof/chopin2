@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.5'
-__date__ = 'Apr 20, 2022'
+__version__ = '1.0.6'
+__date__ = 'Apr 21, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
 import numpy as np
@@ -591,7 +591,7 @@ def percentage_split( data, classes, training=80.0, seed=0 ):
     # Set a seed for the random sampling of the dataset
     random.seed( seed )
 
-    trainData, = list()
+    trainData = list()
     trainLabels = list()
     testData = list()
     testLabels = list()
