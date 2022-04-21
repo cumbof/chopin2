@@ -44,6 +44,9 @@ chopin2 --dimensionality 10000 \
         --levels 100 \
         --retrain 10 \
         --pickle ../dataset/isolet/isolet.pkl \
+        --psplit_training 80 \
+        --dump \
+        --nproc 4 \
         --verbose
 ```
 
@@ -53,6 +56,7 @@ chopin2 --dimensionality 10000 \
         --levels 100 \
         --retrain 10 \
         --pickle ../dataset/isolet/isolet.pkl \
+        --psplit_training 80 \
         --dump \
         --spark \
         --slices 10 \
@@ -64,17 +68,15 @@ chopin2 --dimensionality 10000 \
 List of standard arguments:
 ```
 --dimensionality    -- Dimensionality of the HD model (default 10000)
---levels            -- Number of level hypervectors
+--levels            -- Number of level hypervectors (default 2)
 --retrain           -- Number of retraining iterations (default 0)
 --stop              -- Stop retraining if the error rate does not change (default False)
 --dataset           -- Path to the dataset file
 --fieldsep          -- Field separator (default ",")
---training          -- Percentage of observations that will be used to train the model. 
-                       The remaining percentage will be used to test the classification model (default 80.0)
---k_folds           -- Number of folds for cross validation.
+--psplit_training   -- Percentage of observations that will be used to train the model. 
+                       The remaining percentage will be used to test the classification model
+--crossv_k          -- Number of folds for cross validation.
                        Cross validate HD models if --k_folds greater than 1
---auto_folds        -- Automatically estimate the number of folds for cross validation.
-                       It automatically override --k_folds
 --seed              -- Seed for reproducing random sampling of the observations in the dataset 
                        and build both the training and test set (default 0)
 --pickle            -- Path to the pickle file. If specified, "--dataset", "--fieldsep", and "--training" parameters are not used
