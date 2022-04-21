@@ -84,7 +84,7 @@ def read_params():
                     default = ',',
                     help = "Field separator" )
     p.add_argument( '--psplit_training', 
-                    type = number(float, maxv=100.0),
+                    type = number(float, minv=0.0, maxv=100.0),
                     default = 0.0,
                     help = ( "Percentage of observations that will be used to train the model. "
                              "The remaining percentage will be used to test the classification model" ) )
