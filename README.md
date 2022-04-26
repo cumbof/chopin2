@@ -1,5 +1,8 @@
 # chopin2
 Supervised **C**lassification with **H**yperdimensional C**o**m**p**ut**in**g
+
+<img src="https://anaconda.org/conda-forge/chopin2/badges/version.svg"> <img src="https://img.shields.io/pypi/dm/chopin2.svg">
+
 #### Originally forked from [https://github.com/moimani/HD-Permutaion](https://github.com/moimani/HD-Permutaion)
 
 This repository includes some Python 3.8 utilities to build a Hyperdimensional Computing classification model according to the architecture
