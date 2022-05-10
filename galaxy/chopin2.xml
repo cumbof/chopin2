@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<tool name="chopin2" id="chopin2" version="1.0.6">
+    <description>Domain-Agnostic Supervised Learning with Hyperdimensional Computing</description>
+
+    <!-- Tool developer -->
+    <creator>
+        <person givenName="Fabio" familyName="Cumbo" 
+                url="https://fabio-cumbo.github.io/" 
+                email="fabio.cumbo@gmail.com" />
+    </creator>
+
+    <!-- Define dependencies -->
+    <requirements>
+        <requirement type="package" version="1.0.6">chopin2</requirement>
+    </requirements>
+
+    <command detect_errors="exit_code">
+<![CDATA[
+    ln -s ${dataset};
+
+    chopin2
+
+    --dataset `basename $dataset`
+    --dimensionality ${dimensionality}
+    --levels ${levels}
+    --retrain ${retrain}
+    --stop    
+    --crossv_k ${folds}
+
+    #if $feature_selection.enable_fs == "true":
+        --select_features
+        --group_min ${feature_selection.group_min}
+        --accuracy_threshold ${feature_selection.accuracy_threshold}
+        --accuracy_uncertainty_perc ${feature_selection.accuracy_uncertainty_perc}
+    #end if
+
+    --dump
+    --cleanup
+    --nproc "\${GALAXY_SLOTS:-4}"
+    --verbose
+]]>
+    </command>
+
+    <inputs>
+        <!-- Select a dataset -->
+        <param name="dataset" type="data" format="csv" 
+               label="Select a dataset" 
+               help="Input dataset with features on columns and observations on rows. Last column must contain classes." />
+        
+        <!-- Vector dimensionality -->
+        <param name="dimensionality" type="integer" value="10000" min="100" 
+               label="Vectors dimensionality" 
+               help="Size of hypervectors is usually 10,000 in vector-symbolic architectures. However, lower values could work 
+                     with small datasets in terms of number of features and observations. Please note that you may require 
+                     to increase this number in case of datasets with a huge number of features." />
+        
+        <!-- Number of levels -->
+        <param name="levels" type="integer" value="1000" min="2" 
+               label="Levels" 
+               help="Number of level vectors. You may consider to look at the distribution of your data in order to choose 
+                     the most appropriate value." />
+        
+        <!-- Number of retraining iterations -->
+        <param name="retrain" type="integer" value="0" min="0" 
+               label="Model retraining iterations" 
+               help="Maximum number of retraining iterations. Class hypervectors are retrained to minimize errors caused by noise." />
+        
+        <!-- Number of folds for cross-validation -->
+        <param name="folds" type="integer" value="2" min="2" 
+               label="Number of folds for cross-validation" 
+               help="This tool makes use of k-folds cross-validation to evaluate the accuracy of the hyperdimensional model. 
+                     Make sure to choose a good number of folds for validating the classification model. Please note that higher number 
+                     of folds could significantly increase the running time." />
+
+        <!-- Allow to discard genomes according to their completeness and contamination stats -->
+        <conditional name="feature_selection">
+            <!-- Enable feature selection -->
+            <param name="enable_fs" type="boolean" checked="false" truevalue="true" falsevalue="false" 
+                   label="Enable feature selection" 
+                   help="If selected, this will extract a set of features with the better discriminative power among classes. 
+                         The feature selection algorithm is defined as a backward variable selection method." />
+            
+            <when value="true">
+                <!-- Minimum group size -->
+                <param name="group_min" type="integer" value="1" min="1" 
+                       label="Minimum number of selected features" 
+                       help="Tool will stop removing features if its number will reach this value." />
+                
+                <!-- Accuracy threshold -->
+                <param name="accuracy_threshold" type="float" value="60.0" min="0.0" max="100.0" 
+                       label="Accuracy threshold" 
+                       help="Stop the execution if the best accuracy reached for a group of features is lower than this value." />
+                
+                <!-- Accuracy uncertainty percentage -->
+                <param name="accuracy_uncertainty_perc" type="float" value="5.0" min="0.0" max="100.0" 
+                       label="Accuracy uncertainty percentage" 
+                       help="Consider non optimal solutions if model accuracy is greater than the best accuracy minus this percentage." />
+            </when>
+        </conditional>
+    </inputs>
+
+    <outputs>
+        <!-- Output summary file -->
+        <data format="txt" name="summary" label="${tool.name} on ${on_string}: Summary" from_work_dir="summary.txt" />
+        <!-- Output file with selected features -->
+        <data format="txt" name="selection" label="${tool.name} on ${on_string}: Selection" from_work_dir="selection.txt">
+            <filter>feature_selection["enable_fs"]</filter>
+        </data>
+    </outputs>
+
+    <help><![CDATA[
+This is a domain-agnostic supervised learning tool that exploit the Hyperdimensional Computing paradigm to encode and compare data.
+
+-----
+
+**Input file**
+
+The input is a CSV file representing a matrix with the observations on the rows and features on columns.
+The last column contains classes associated to the observations.
+
+The tool doesn't support datasets with missing values. It also supports numerical datasets only.
+
+Please, refer to the example below to know how to structure your dataset:
+
++------------------+--------------+--------------+--------------+------+--------------+-------------+
+|                  | **Feature1** | **Feature2** | **Feature3** | ...  | **FeatureM** | **Class**   |
++==================+==============+==============+==============+======+==============+=============+
+| **Observation1** | 0.68         | 1.97         | 0.02         | ...  | 0.01         | Case        |
++------------------+--------------+--------------+--------------+------+--------------+-------------+
+| **Observation2** | 0.52         | 0.60         | 1.16         | ...  | 0.07         | Case        |
++------------------+--------------+--------------+--------------+------+--------------+-------------+
+| **Observation2** | 0.56         | 0.01         | 0.50         | ...  | 1.16         | Control     |
++------------------+--------------+--------------+--------------+------+--------------+-------------+
+| ...              | ...          | ...          | ...          | ...  | ...          | ...         |
++------------------+--------------+--------------+--------------+------+--------------+-------------+
+| **ObservationN** | 0.05         | 1.86         | 0.03         | ...  | 2.83         | Control     |
++------------------+--------------+--------------+--------------+------+--------------+-------------+
+
+-----
+
+**Output**
+
+The output is a summary table with information about the accuracy of the hyperdimensional model and 
+the number of retraining iterations that were required to achieve that level of accuracy.
+
+In case the feature selection is enabled, it also returns a file with the list of selected features
+that come out from the hyperdimensional model that reached the best accuracy.
+
+-----
+
+.. class:: infomark
+
+**Notes**
+
+Please visit the official GitHub repository_ for other information about `chopin2`.
+
+.. _repository: https://github.com/fabio-cumbo/chopin2
+    ]]></help>
+
+    <citations>
+        <citation type="doi">10.3390/a13090233</citation>
+    </citations>
+</tool>
