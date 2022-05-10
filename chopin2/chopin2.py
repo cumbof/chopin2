@@ -107,7 +107,7 @@ def read_params():
                     action = 'store_true',
                     default = False,
                     help = ( "This triggers the backward variable selection method for the identification of the most significant features. " 
-                             "Warning: computationally intense!") )
+                             "Warning: computationally intense!" ) )
     p.add_argument( '--group_min', 
                     type = number(int, minv=1),
                     default = 1,
@@ -131,8 +131,8 @@ def read_params():
     p.add_argument( '--accuracy_uncertainty_perc', 
                     type = number(float, minv=0.0, maxv=100.0),
                     default = 5.0,
-                    help = ( "Take a run into account even if its accuracy is lower than the best accuracy achieved in the same group minus "
-                             "its \"accuracy_uncertainty_perc\" percent" ) )
+                    help = ( "Take a run into account if its accuracy is lower than the best accuracy achieved in the same group, but greater"
+                             "than the best accuracy minus its \"accuracy_uncertainty_perc\" percent" ) )
     # Apache Spark
     p.add_argument( '--spark',
                     action = 'store_true',
