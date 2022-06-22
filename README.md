@@ -35,7 +35,7 @@ docker build -t chopin2 .
 docker run -it chopin2
 ```
 
-Please note that `chopin2` is also available as a Galaxy tool. It's wrapper is available under the official Galaxy ToolShed at [https://toolshed.g2.bx.psu.edu/view/fabio/honto](https://toolshed.g2.bx.psu.edu/view/fabio/honto)
+Please note that `chopin2` is also available as a Galaxy tool. It's wrapper is available under the official Galaxy ToolShed at [https://toolshed.g2.bx.psu.edu/view/fabio/chopin2](https://toolshed.g2.bx.psu.edu/view/fabio/chopin2)
 
 ### Usage
 
