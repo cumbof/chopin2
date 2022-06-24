@@ -8,7 +8,7 @@ originally introduced in [https://doi.org/10.1109/DAC.2018.8465708](https://doi.
 
 The `src/generators` folder contains two Python 3.8 scripts able to create training a test datasets with randomly selected samples from:
 - BRCA, KIRP, and THCA DNA-Methylation data from the paper [Classification of Large DNA Methylation Datasets for Identifying Cancer Drivers](https://doi.org/10.1016/j.bdr.2018.02.005) by Fabrizio Celli, Fabio Cumbo, and Emanuel Weitschek;
-- Gene-expression quantification and Methylation Beta Value experiments provided by [OpenGDC](https://github.com/fabio-cumbo/OpenGDC/) for all the 33 different types of tumors of the TCGA program.
+- Gene-expression quantification and Methylation Beta Value experiments provided by [OpenGDC](https://github.com/cumbof/OpenGDC/) for all the 33 different types of tumors of the TCGA program.
 
 Due to the size of the datasets, they have not been reported on this repository but can be retrieved from: 
 - [ftp://bioinformatics.iasi.cnr.it/public/bigbiocl_dna-meth_data/](ftp://bioinformatics.iasi.cnr.it/public/bigbiocl_dna-meth_data/)
