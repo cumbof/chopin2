@@ -1,7 +1,7 @@
 # Title          :chopin2
 # Description    :Supervised Classification with Hyperdimensional Computing
 # Author         :Fabio Cumbo (fabio.cumbo@gmail.com)
-# License        :https://github.com/fabio-cumbo/chopin2/blob/master/LICENSE
+# License        :https://github.com/cumbof/chopin2/blob/master/LICENSE
 
 FROM ubuntu:18.04
 
