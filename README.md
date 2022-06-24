@@ -12,7 +12,7 @@ The `src/generators` folder contains two Python 3.8 scripts able to create train
 
 Due to the size of the datasets, they have not been reported on this repository but can be retrieved from: 
 - [ftp://bioinformatics.iasi.cnr.it/public/bigbiocl_dna-meth_data/](ftp://bioinformatics.iasi.cnr.it/public/bigbiocl_dna-meth_data/)
-- [http://geco.deib.polimi.it/opengdc/](http://geco.deib.polimi.it/opengdc/) and [https://github.com/fabio-cumbo/OpenGDC/](https://github.com/fabio-cumbo/OpenGDC/)
+- [http://geco.deib.polimi.it/opengdc/](http://geco.deib.polimi.it/opengdc/) and [https://github.com/cumbof/OpenGDC/](https://github.com/cumbof/OpenGDC/)
 
 The `isolet` dataset is part of the original forked version of the repository and it has been maintained in order to provide a simple 
 toy model for testing purposes only.
