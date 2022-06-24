@@ -37,7 +37,7 @@ test:
     - pip
 
 about:
-  home: https://github.com/fabio-cumbo/chopin2
+  home: https://github.com/cumbof/chopin2
   license: GPL-3.0-only
   license_family: GPL
   license_file: LICENSE
@@ -48,4 +48,4 @@ about:
 
 extra:
   recipe-maintainers:
-    - fabio-cumbo
+    - cumbof
