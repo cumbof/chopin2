@@ -3,7 +3,7 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '1.0.6'
-__date__ = 'Apr 21, 2022'
+__date__ = 'Aug 16, 2022'
 
 import sys
 
@@ -202,7 +202,7 @@ def chopin2():
         # If the pickle file already exists
         picklepath = args.pickle
         dataset = pickle.load(open(picklepath, 'rb'))
-        if len(dataset) > 4:
+        if len(dataset) > 2:
             # Define features, allData, and allLabels
             features, allData, allLabels = dataset
         else:
