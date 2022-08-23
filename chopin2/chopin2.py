@@ -3,7 +3,7 @@
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
 __version__ = '1.0.6'
-__date__ = 'Aug 16, 2022'
+__date__ = 'Aug 23, 2022'
 
 import sys
 
@@ -298,7 +298,7 @@ def chopin2():
                     header += '# Max retraining iterations: {}\n'.format( args.retrain )
                     header += '# Accuracy threshold (stop condition): {}\n'.format( args.accuracy_threshold )
                     header += '# Accuracy uncertainty (percentage): {}\n'.format( args.accuracy_uncertainty_perc )
-                    header += '# Run ID\tGroup Size\tRetraining\tAccuracy'
+                    header += '# Run ID\tGroup Size\tRetraining\tAccuracy\tExcluded Feature'
                     fun.printlog( header, out=summary )
         # For each group size
         prev_group_size = np.Inf
@@ -330,6 +330,7 @@ def chopin2():
                     # Define a set of N features with N equals to "group_size"
                     for comb_features in itertools.combinations( best_features, group_size ):
                         comb_features = sorted(comb_features)
+                        excluded_features = list(set(best_features).difference(set(comb_features)))
                         # Build unique identifier for the current set of features
                         features_hash = hashlib.md5(str(comb_features).encode()).hexdigest()
                         # Create a log for the current run
@@ -490,7 +491,8 @@ def chopin2():
                                         "accuracy": avg_accuracy,
                                         "retraining": avg_retraining,
                                         "run": features_hash,
-                                        "features": comb_features
+                                        "features": comb_features,
+                                        "excluded": excluded_features
                                     }
                                 )
                             elif mapping[ group_size ][ 0 ][ "accuracy" ] == avg_accuracy:
@@ -499,7 +501,8 @@ def chopin2():
                                         "accuracy": avg_accuracy,
                                         "retraining": avg_retraining,
                                         "run": features_hash,
-                                        "features": comb_features
+                                        "features": comb_features,
+                                        "excluded": excluded_features
                                     }
                                 )
                         else:
@@ -508,7 +511,8 @@ def chopin2():
                                     "accuracy": avg_accuracy,
                                     "retraining": avg_retraining,
                                     "run": features_hash,
-                                    "features": comb_features
+                                    "features": comb_features,
+                                    "excluded": excluded_features
                                 }
                             ]
                         # Close log
@@ -533,7 +537,7 @@ def chopin2():
                         with open(summary_filepath, 'a+') as summary:
                             for run in mapping[group_size]:
                                 fun.printlog( 
-                                    '{}\t{}\t{}\t{}'.format(run["run"], group_size, run["retraining"], run["accuracy"]),
+                                    '{}\t{}\t{}\t{}\t{}'.format(run["run"], group_size, run["retraining"], run["accuracy"], ", ".join(run["excluded"])),
                                     out=summary
                                 )
         
