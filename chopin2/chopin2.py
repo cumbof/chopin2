@@ -2,8 +2,8 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.6'
-__date__ = 'Aug 23, 2022'
+__version__ = '1.0.7'
+__date__ = 'Jan 27, 2023'
 
 import sys
 
@@ -292,7 +292,7 @@ def chopin2():
             summary_filepath = os.path.join( datasetdir, 'summary.txt' )
             if not os.path.exists( summary_filepath ):
                 with open( summary_filepath, 'a+' ) as summary:
-                    header = '# Dataset: {}\n'.format( picklepath )
+                    header = '# Dataset: {}\n'.format( os.path.splitext(os.path.basename(args.dataset))[0] )
                     header += '# Dimensionality: {}\n'.format( args.dimensionality )
                     header += '# Number of levels: {}\n'.format( args.levels )
                     header += '# Max retraining iterations: {}\n'.format( args.retrain )

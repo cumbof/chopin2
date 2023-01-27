@@ -2,7 +2,7 @@
 
 __authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
                 'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.6'
+__version__ = '1.0.7'
 __date__ = 'Apr 21, 2022'
 
 import os, random, copy, pickle, shutil, warnings, math
