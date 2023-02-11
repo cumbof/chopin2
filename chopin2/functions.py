@@ -383,7 +383,7 @@ def EncodeToHV(inputBuffer, D, levelHVs, levelList):
     :levelList:list:        List of levels
     """
 
-    sumHV = np.zeros(D, dtype = np.int)
+    sumHV = np.zeros(D, dtype = np.int64)
     for keyVal in range(len(inputBuffer)):
         key = numToKey(inputBuffer[keyVal], levelList)
         levelHV = levelHVs[key] 
