@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 
-__authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
-                'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.7'
-__date__ = 'Jan 27, 2023'
-
 import sys
 
 # Control current Python version
@@ -13,8 +8,14 @@ if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and  sys.version_info[1]
     raise Exception("chopin2 requires Python 3.8, your current Python version is {}.{}.{}"
                     .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
-import os, time, pickle, itertools, hashlib, math
 import argparse as ap
+import hashlib
+import itertools
+import math
+import os
+import pickle
+import time
+
 import numpy as np
 import chopin2.functions as fun
 

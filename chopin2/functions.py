@@ -1,14 +1,15 @@
-#!/usr/bin/env python
-
-__authors__ = ( 'Fabio Cumbo (fabio.cumbo@unitn.it)',
-                'Simone Truglia (s.truglia@students.uninettunouniversity.net)' )
-__version__ = '1.0.7'
-__date__ = 'Apr 21, 2022'
-
-import os, random, copy, pickle, shutil, warnings, math
-import numpy as np
+import copy
+import math
 import multiprocessing as mp
+import os
+import pickle
+import random
+import shutil
+import warnings
 from functools import partial
+
+import numpy as np
+
 warnings.filterwarnings("ignore")
 
 def load_optional_modules(pyspark=False, numba=False, verbose=False):
