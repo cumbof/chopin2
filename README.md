@@ -124,9 +124,9 @@ List of arguments for the execution of the classifier on NVidia powered GPUs:
 
 Please credit our work in your manuscript by citing:
 
-> _Manuscript in preparation_
-
 > Fabio Cumbo, Eleonora Cappelli, and Emanuel Weitschek, "A brain-inspired hyperdimensional computing approach for classifying massive DNA methylation data of cancer", MDPI Algorithms, 2020 [https://doi.org/10.3390/a13090233](https://doi.org/10.3390/a13090233)
+
+> Fabio Cumbo, Emanuel Weitschek, and Daniel Blankenberg, "hdlib: A Python library for designing Vector-Symbolic Architectures", Journal of Open Source Software, 2023 [https://doi.org/10.21105/joss.05704](https://doi.org/10.21105/joss.05704)
 
 Do not forget to also cite the following paper from which this works takes inspiration:
 
