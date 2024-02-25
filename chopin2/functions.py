@@ -342,6 +342,8 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None, se
     :seed:int:          Seed for reproducing the same random hypervectors
     """
 
+    rand = np.random.default_rng(seed=seed)
+
     levelHVs = dict()
     indexVector = range(D)
     nextLevel = int((D/2/totalLevel))
@@ -349,9 +351,9 @@ def genLevelHVs(totalLevel, D, gpu=False, tblock=32, verbose=False, log=None, se
     for level in range(totalLevel):
         if level == 0:
             base = np.full( D, -1 )
-            toOne = np.random.RandomState(seed=seed).permutation(indexVector)[:change]
+            toOne = rand.permutation(indexVector)[:change]
         else:
-            toOne = np.random.RandomState(seed=seed).permutation(indexVector)[:nextLevel]
+            toOne = rand.permutation(indexVector)[:nextLevel]
         if gpu and toOne.size != 0:
             blocksPerGrid = (toOne.size + (tblock - 1))
             gpu_base[blocksPerGrid, tblock](toOne, base)
