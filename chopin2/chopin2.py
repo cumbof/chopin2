@@ -19,6 +19,8 @@ import time
 import numpy as np
 import chopin2.functions as fun
 
+from chopin2 import __version__, __date__
+
 def cite():
     """
     Custom argparse action to print citations and exit
