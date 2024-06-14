@@ -796,20 +796,20 @@ def trainNTimes(
     retraining = list()
     currClassHV = copy.deepcopy(classHVs)
 
-    accuracy.append( 
-        test(
-            currClassHV,
-            testHVs, 
-            testLabels, 
-            spark=spark,
-            slices=slices,
-            master=master,
-            memory=memory,
-            dataset=dataset,
-            verbose=verbose,
-            log=log
-        )
+    acc = test(
+        currClassHV,
+        testHVs, 
+        testLabels, 
+        spark=spark,
+        slices=slices,
+        master=master,
+        memory=memory,
+        dataset=dataset,
+        verbose=verbose,
+        log=log
     )
+
+    accuracy.append(round(acc, 2))
 
     retraining.append(0)
     prev_error = np.Inf
@@ -819,20 +819,20 @@ def trainNTimes(
 
         currClassHV, error = trainOneTime(currClassHV, trainHVs, trainLabels, verbose=verbose, log=log)
         
-        accuracy.append(
-            test(
-                currClassHV, 
-                testHVs, 
-                testLabels, 
-                spark=spark,
-                slices=slices,
-                master=master,
-                memory=memory, 
-                dataset=dataset, 
-                verbose=verbose, 
-                log=log
-            )
+        acc = test(
+            currClassHV, 
+            testHVs, 
+            testLabels, 
+            spark=spark,
+            slices=slices,
+            master=master,
+            memory=memory, 
+            dataset=dataset, 
+            verbose=verbose, 
+            log=log
         )
+
+        accuracy.append(round(acc, 2))
 
         retraining.append(i+1)
 

@@ -639,12 +639,12 @@ def chopin2():
                             )
 
                             # Get best accuracy
-                            best = max(accuracy)
+                            best = round(max(accuracy), 2)
                             accuracies.append(best)
                             retrainings.append(retraining[accuracy.index(best)])
 
                         t1acc = time.time()
-                        avg_accuracy = sum(accuracies)/len(accuracies)
+                        avg_accuracy = round(sum(accuracies)/len(accuracies), 2)
                         avg_retraining = math.floor(sum(retrainings)/len(retrainings))
 
                         fun.printlog(
