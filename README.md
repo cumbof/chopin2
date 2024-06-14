@@ -1,5 +1,7 @@
 # chopin2
-Supervised **C**lassification with **H**yperdimensional C**o**m**p**ut**in**g
+Supervised **C**lassification with **H**yperdimensional C**o**m**p**ut**in**g.
+
+![Conda](https://img.shields.io/conda/dn/conda-forge/chopin2?label=chopin2%20on%20Conda)
 
 #### Originally forked from [https://github.com/moimani/HD-Permutaion](https://github.com/moimani/HD-Permutaion)
 
